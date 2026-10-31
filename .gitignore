@@ -1,0 +1,57 @@
+# Prerequisites and Build Artifacts
+.gradle/
+build/
+bin/
+out/
+target/
+*.class
+
+# Package Manager
+node_modules/
+
+# Crash Logs, Runtime Logs, and Dumps
+*.log
+hs_err_pid*
+replay_pid*
+*.tmp
+*.bak
+*_note.txt
+
+# Environment variables, Secrets, and Private Keys
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.p12
+*.jks
+*firebase-service-account*.json
+!*firebase-service-account*.example.json
+*serviceAccount*.json
+
+# IDE / Editor Files
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+.springBeans
+.sts4-cache
+.apt_generated/
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Explicitly preserve Gradle wrapper jar
+!gradle/wrapper/gradle-wrapper.jar

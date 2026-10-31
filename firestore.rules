@@ -1,0 +1,286 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function isStudent() {
+      return isSignedIn() && getUserRole() == 'STUDENT';
+    }
+
+    function isAdvisor() {
+      return isSignedIn() && getUserRole() == 'ADVISOR';
+    }
+
+    function isHod() {
+      return isSignedIn() && getUserRole() == 'HOD';
+    }
+
+    function isPrincipal() {
+      return isSignedIn() && getUserRole() == 'PRINCIPAL';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'ADMIN';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && (request.auth.uid == userId || request.auth.token.identifier == userId);
+    }
+
+    // =========================================================================
+    // 1. Students Collection
+    // =========================================================================
+    match /students/{studentId} {
+      // Students can only read their own profile; staff and admin can view directories
+      allow read: if isSignedIn() && (isOwner(studentId) || isAdvisor() || isHod() || isPrincipal() || isAdmin());
+      // Students can only update allowed contact info; fee records/academic year cannot be altered
+      allow update: if isOwner(studentId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['regNo', 'academicYear', 'section', 'fees']);
+      allow create, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 2. Staff Collection
+    // =========================================================================
+    match /staff/{staffId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 3. Academic Workflow Requests (OD, Leave, Bonafide)
+    // =========================================================================
+    match /od_requests/{requestId} {
+      // Student can read own requests; Advisor reads their section; HOD/Principal/Admin read all
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.regNo) ||
+        (isAdvisor() && request.auth.token.section == resource.data.section) ||
+        isHod() || isPrincipal() || isAdmin()
+      );
+
+      // Student can submit new requests with initial PENDING status
+      allow create: if isStudent() && isOwner(request.resource.data.regNo)
+        && (request.resource.data.status in ['PENDING_ADVISOR', 'DRAFT']);
+
+      // Students can only edit drafts; Staff can only approve within their assigned tier
+      allow update: if isSignedIn() && (
+        (isOwner(resource.data.regNo) && resource.data.status == 'DRAFT') ||
+        (isAdvisor() && request.auth.token.section == resource.data.section && resource.data.status == 'PENDING_ADVISOR') ||
+        (isHod() && resource.data.status == 'PENDING_HOD') ||
+        (isPrincipal() && resource.data.status == 'PENDING_PRINCIPAL') ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin() || (isOwner(resource.data.regNo) && resource.data.status == 'DRAFT');
+    }
+
+    // =========================================================================
+    // 4. Student Fee Assignments
+    // =========================================================================
+    match /fee_assignments/{feeId} {
+      // Students can read ONLY their own fee records
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.studentId) ||
+        (isAdvisor() && request.auth.token.section == resource.data.section) ||
+        isHod() || isPrincipal() || isAdmin()
+      );
+
+      // CRITICAL: Students and Advisors CANNOT create, update, or delete fee assignments
+      // Strictly reserved for College Administration & Accounts Directorate
+      allow create, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 5. Fee Payments & Submissions
+    // =========================================================================
+    match /fee_payments/{paymentId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.studentId) ||
+        (isAdvisor() && request.auth.token.section == resource.data.section) ||
+        isAdmin()
+      );
+
+      // Students can submit payment UTR references, strictly locked in PENDING_VERIFICATION status
+      allow create: if isStudent() && isOwner(request.resource.data.studentId)
+        && request.resource.data.status == 'PENDING_VERIFICATION';
+
+      // CRITICAL: Only Administrators can verify (CONFIRMED) or reject payments
+      // Students are completely prevented from changing verification status
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 6. Fee Receipts (Official Financial Documents)
+    // =========================================================================
+    match /fee_receipts/{receiptId} {
+      allow read: if isSignedIn() && (
+        isOwner(resource.data.studentId) ||
+        (isAdvisor() && request.auth.token.section == resource.data.section) ||
+        isAdmin()
+      );
+      // Receipts can only be generated upon official payment confirmation
+      allow create, update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 7. Payment Orders (Gateway Integration)
+    // =========================================================================
+    match /payment_orders/{orderId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.studentId) || isAdmin());
+      allow create: if isStudent() && isOwner(request.resource.data.studentId);
+      allow update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 8. Fee Settings & Fee Categories
+    // =========================================================================
+    match /fee_settings/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /fee_categories/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /fee_audit_logs/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 9. Real-Time Chat & Messages
+    // =========================================================================
+    match /conversations/{conversationId} {
+      allow read, write: if isSignedIn() && (
+        (resource.data.participants != null && (
+          request.auth.uid in resource.data.participants ||
+          request.auth.token.identifier in resource.data.participants ||
+          request.auth.token.email in resource.data.participants
+        )) ||
+        request.auth.token.identifier == resource.data.studentRegNo ||
+        request.auth.token.identifier == resource.data.staffUsername ||
+        request.auth.token.identifier == resource.data.senderId ||
+        request.auth.token.identifier == resource.data.recipientId ||
+        request.auth.uid == resource.data.studentRegNo ||
+        request.auth.uid == resource.data.staffUsername
+      );
+      allow create: if isSignedIn();
+
+      // Nested subcollection for conversation messages
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /chat_conversations/{conversationId} {
+      allow read, write: if isSignedIn() && (
+        (resource.data.participants != null && (
+          request.auth.uid in resource.data.participants ||
+          request.auth.token.identifier in resource.data.participants ||
+          request.auth.token.email in resource.data.participants
+        )) ||
+        request.auth.token.identifier == resource.data.studentRegNo ||
+        request.auth.token.identifier == resource.data.staffUsername
+      );
+      allow create: if isSignedIn();
+
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /chat_messages/{messageId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId ||
+        request.auth.token.identifier == resource.data.senderId ||
+        request.auth.token.identifier == resource.data.recipientId ||
+        request.auth.token.email == resource.data.senderId ||
+        request.auth.token.email == resource.data.recipientId
+      );
+      allow create: if isSignedIn() && (
+        request.auth.uid == request.resource.data.senderId ||
+        request.auth.token.identifier == request.resource.data.senderId ||
+        request.auth.token.email == request.resource.data.senderId
+      );
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.recipientId ||
+        request.auth.token.identifier == resource.data.recipientId ||
+        request.auth.token.email == resource.data.recipientId
+      );
+    }
+
+    match /chat_requests/{requestId} {
+      allow read, write: if isSignedIn() && (
+        request.auth.token.identifier == resource.data.senderId ||
+        request.auth.token.identifier == resource.data.recipientId ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId ||
+        request.auth.token.email == resource.data.senderId ||
+        request.auth.token.email == resource.data.recipientId
+      );
+      allow create: if isSignedIn();
+    }
+
+    // =========================================================================
+    // 10. Announcements & Notifications
+    // =========================================================================
+    match /announcements/{announcementId} {
+      // Students can only read notices intended for all or their own section
+      allow read: if isSignedIn() && (
+        !isStudent() ||
+        resource.data.targetSection == 'ALL' ||
+        resource.data.targetSection == request.auth.token.section ||
+        (resource.data.targetSections != null && (
+          'ALL' in resource.data.targetSections ||
+          request.auth.token.section in resource.data.targetSections
+        )) ||
+        resource.data.targetStudentId == request.auth.token.identifier
+      );
+      // Only authorized roles can create: Staff / Class Advisor (authorized sections only), HOD, Principal
+      // Admin and Student roles are strictly prohibited from creating announcements
+      allow create: if (
+        (isAdvisor() && (
+          (request.resource.data.targetSections != null &&
+           request.resource.data.targetSections.hasOnly([request.auth.token.section])) ||
+          (request.resource.data.targetSection != null &&
+           request.resource.data.targetSection == request.auth.token.section)
+        )) ||
+        isHod() || isPrincipal()
+      );
+      // Students can only update their own readBy entry; authorized leaders can edit
+      allow update: if (isAdvisor() || isHod() || isPrincipal()) ||
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']));
+      allow delete: if !isStudent() && (isPrincipal() || (isSignedIn() && request.auth.token.identifier == resource.data.senderId));
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && isOwner(resource.data.recipientId);
+      allow update: if isSignedIn() && isOwner(resource.data.recipientId);
+      allow create: if isSignedIn();
+    }
+
+    // =========================================================================
+    // 11. Student Confidential Complaints (Direct to Principal exclusively)
+    // =========================================================================
+    match /complaints/{complaintId} {
+      // Student can read ONLY their own complaint; Principal can read all complaints.
+      // ADVISORS AND HOD CANNOT ACCESS COMPLAINTS!
+      allow read: if isSignedIn() && (isOwner(resource.data.regNo) || isPrincipal());
+      allow create: if isStudent() && isOwner(request.resource.data.regNo);
+      allow update: if isPrincipal();
+      allow delete: if isPrincipal();
+    }
+  }
+}
