@@ -73,15 +73,11 @@ An institutional enterprise web platform engineered for higher education institu
 - **Publisher Permissions**: Strictly reserved for Class Advisors, HOD, and Principal (students have view-only access).
 - **Targeted Audiences**: Dispatches targeted to specific sections (CSE-A, CSE-B, CSE-C), combinations, or college-wide broadcasts.
 
-### 8. 💳 Institutional Fees & Payments
-- **Category Tracking**: Tuition, Examination, Transport, and Hostel/Mess fees with breakdown and balance calculation.
-- **Payment Processing**: Integrated Razorpay order creation and audit ledger.
-- **Downloadable Fee Receipts**: Official receipts with transaction IDs, dates, and student identifiers.
 
-### 9. 🤖 AI Academic Assistant
+### .8 🤖 AI Academic Assistant
 - Embedded institutional assistant addressing student questions on Anna University 75% attendance criteria, OD application processes, safe leave headroom, and campus rules.
 
-### 10. 👤 Personal Profile Management & Photo Uploads
+### 9. 👤 Personal Profile Management & Photo Uploads
 - Universal profile photo upload supporting JPG, JPEG, PNG, and WEBP formats.
 - Persistent Firestore storage with synchronized avatars across navigation, top bar, and chat.
 
