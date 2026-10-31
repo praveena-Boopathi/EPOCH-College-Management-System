@@ -238,9 +238,14 @@ public class PdfGenerationService {
         c3.setBorder(Rectangle.NO_BORDER);
         headerTable.addCell(c3);
 
-        String docTitle = req.isLeave()
-                ? "OFFICIAL LEAVE APPROVAL CERTIFICATE"
-                : "OFFICIAL ON-DUTY (OD) APPROVAL CERTIFICATE";
+        String docTitle;
+        if (req.isLeave()) {
+            docTitle = "OFFICIAL LEAVE APPROVAL CERTIFICATE";
+        } else if (req.getOdType() != null && !req.getOdType().trim().isEmpty() && !req.getOdType().equalsIgnoreCase("On-Duty")) {
+            docTitle = "OFFICIAL ON-DUTY (OD) APPROVAL CERTIFICATE – " + req.getOdType().toUpperCase();
+        } else {
+            docTitle = "OFFICIAL ON-DUTY (OD) APPROVAL CERTIFICATE";
+        }
 
         PdfPCell c4 = new PdfPCell(new Phrase(docTitle, headerFont));
         c4.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -358,7 +363,7 @@ public class PdfGenerationService {
 
         // Footer note
         Paragraph footer = new Paragraph(
-                "\nThis is a digitally verified official college record sanctioned by the Head of Department via the EPOCH Management System. Verification Ref: " + req.getId(),
+                "\nThis is an official college record digitally sanctioned by the Head of Department. Verification Ref: " + req.getId(),
                 FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, Color.GRAY)
         );
         footer.setAlignment(Element.ALIGN_CENTER);
@@ -622,7 +627,7 @@ public class PdfGenerationService {
         PdfPCell noteCell = new PdfPCell();
         noteCell.setBorder(Rectangle.NO_BORDER);
         noteCell.addElement(new Paragraph("Important Note:", boldFont));
-        noteCell.addElement(new Paragraph("This is an electronically generated institutional receipt issued by Gnanamani College of Technology via the EPOCH Platform. Verified against banking reconciliation records.", FontFactory.getFont(FontFactory.HELVETICA, 8, Color.DARK_GRAY)));
+        noteCell.addElement(new Paragraph("This is an electronically generated institutional receipt issued by Gnanamani College of Technology. Verified against banking reconciliation records.", FontFactory.getFont(FontFactory.HELVETICA, 8, Color.DARK_GRAY)));
         sigTable.addCell(noteCell);
 
         PdfPCell verCell = new PdfPCell();

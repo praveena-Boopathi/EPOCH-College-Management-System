@@ -1680,7 +1680,7 @@
             <div class="printable-document-title">GNANAMANI COLLEGE OF TECHNOLOGY</div>
             <div class="printable-document-sub">(An Autonomous Institution • Affiliated to Anna University, Chennai)</div>
             <div style="font-size:11px; color:#64748b; margin-top:2px;">NH-7, A.K. Samuthiram, Pachal (PO), Namakkal - 637 018</div>
-            <div class="printable-doc-type">OFFICIAL APPLICATION FOR ON-DUTY (OD) PERMISSION</div>
+            <div class="printable-doc-type" id="prevDocTypeTitle">OFFICIAL APPLICATION FOR ON-DUTY (OD) PERMISSION</div>
           </div>
 
           <table class="printable-table">
@@ -1698,23 +1698,23 @@
                 <td id="prevSection" style="font-weight:600;">-</td>
               </tr>
               <tr>
-                <th>OD Category</th>
+                <th id="prevCatLabel">OD Category</th>
                 <td id="prevCategory" style="font-weight:600; color:#0d9488;">-</td>
-                <th>Duration</th>
+                <th id="prevDurLabel">Duration</th>
                 <td id="prevDuration" style="font-weight:600;">-</td>
               </tr>
               <tr>
-                <th>Event Title</th>
+                <th id="prevEventTitleLabel">Event Title</th>
                 <td colspan="3" id="prevEventTitle" style="font-weight:700; color:#0b132b;">-</td>
               </tr>
-              <tr>
-                <th>Organizing Body</th>
+              <tr id="prevOrgVenueRow">
+                <th id="prevOrganizerLabel">Organizing Body</th>
                 <td id="prevOrganizer">-</td>
-                <th>Event Venue / City</th>
+                <th id="prevVenueLabel">Event Venue / City</th>
                 <td id="prevVenue">-</td>
               </tr>
               <tr>
-                <th>Purpose & Justification</th>
+                <th id="prevReasonLabel">Purpose & Justification</th>
                 <td colspan="3" id="prevReason" style="white-space:pre-wrap; line-height:1.6;">-</td>
               </tr>
               <tr>
@@ -1730,25 +1730,28 @@
             <div id="prevRouteContainer" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; color:#475569;">
               <span id="prevRouteAdvisorBlock">1. Class Advisor (<span id="prevRouteAdvisor">Student's Section</span>)</span>
               <span>→</span>
-              <span>2. Head of Department (CSE)</span>
+              <span id="prevRouteHODBlock">2. Head of Department (Dr. K. Gopinath - CSE)</span>
               <span id="prevRoutePrincipalArrow" style="display:none;">→</span>
-              <span id="prevRoutePrincipal" style="display:none;">3. Principal</span>
+              <span id="prevRoutePrincipal" style="display:none;">3. Principal (Dr. B. Sanjay Gandhi)</span>
             </div>
           </div>
 
           <!-- Digital Verification Blocks -->
           <div id="prevVerificationBlocks" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:24px; text-align:center; font-size:11.5px; border-top:1px dashed #cbd5e1; padding-top:18px;">
-            <div>
+            <div id="prevAdvBlock">
               <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(Pending Verification)</div>
-              <div style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Class Advisor</div>
+              <div id="prevAdvTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Class Advisor</div>
+              <div id="prevAdvSigner" style="font-size:10.5px; color:#64748b;">Assigned Class Advisor</div>
             </div>
-            <div>
+            <div id="prevHodBlock">
               <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(In Queue)</div>
-              <div style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Head of Department</div>
+              <div id="prevHodTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Head of Department (CSE)</div>
+              <div id="prevHodSigner" style="font-size:10.5px; color:#64748b;">Dr. K. Gopinath</div>
             </div>
             <div id="prevPrincipalBlock" style="display:none;">
               <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(In Queue)</div>
-              <div style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Principal</div>
+              <div id="prevPrinTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Principal</div>
+              <div id="prevPrinSigner" style="font-size:10.5px; color:#64748b;">Dr. B. Sanjay Gandhi</div>
             </div>
           </div>
         </div>
@@ -2407,7 +2410,7 @@
           <div style="text-align:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
             <h2 style="font-size:17px; font-weight:800; color:var(--primary);">GNANAMANI COLLEGE OF TECHNOLOGY</h2>
             <h3 style="font-size:12px; color:#64748b; font-weight:500;">(Autonomous Institution - Affiliated to Anna University)</h3>
-            <h4 style="font-size:13px; font-weight:700; color:var(--accent-teal); margin-top:4px;">OFFICIAL ON-DUTY (OD) SANCTION CERTIFICATE</h4>
+            <h4 id="qrCertDocTitle" style="font-size:13px; font-weight:700; color:var(--accent-teal); margin-top:4px;">OFFICIAL ON-DUTY (OD) SANCTION CERTIFICATE</h4>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; margin-bottom:14px;">
@@ -2435,31 +2438,20 @@
             <div class="qr-cert-details">
               <strong style="color:var(--accent-teal);">Verification Code:</strong> <code id="qrCertCode" style="font-weight:700;"></code><br>
               <span style="font-size:11px; color:#64748b;">
-                Scan with any institutional scanner to verify authenticity against the EPOCH decentralized academic ledger.
+                Scan with any institutional scanner to verify authenticity against the institutional ledger.
               </span><br>
               <span class="badge-tag badge-approved" style="margin-top:6px;">Digitally Signed & Validated</span>
             </div>
           </div>
 
           <div class="doc-signatures" id="qrDocSignatures">
-            <div>
-              <strong>Class Advisor</strong><br>
-              <span style="color:var(--success);">✓ Verified & Endorsed</span>
-            </div>
-            <div>
-              <strong>Head of Department</strong><br>
-              <span style="color:var(--success);">✓ Department Approved</span>
-            </div>
-            <div>
-              <strong>Principal</strong><br>
-              <span style="color:var(--success);">✓ Institutional Sanction</span>
-            </div>
+            <!-- Dynamically populated by StudentPortal.openQrModal based on exact workflow -->
           </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="StudentPortal.closeQrModal()">Close</button>
-        <button class="btn btn-primary" onclick="window.print()">Print Certificate</button>
+        <button class="btn btn-primary" onclick="StudentPortal.printQrCertificate()">Print Certificate</button>
       </div>
     </div>
   </div>

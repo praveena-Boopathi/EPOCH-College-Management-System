@@ -799,12 +799,44 @@ const StudentPortal = {
     const end = document.getElementById("odEndDateInput").value;
     const days = parseInt(document.getElementById("odDaysInput").value) || 1;
     const reason = document.getElementById("odReasonInput").value.trim();
+    const sec = u.section || "CSE-A";
+    const advName = sec === "CSE-B" ? "Dr. Divyabharathi" : (sec === "CSE-C" ? "Mrs. Rajavathi Jayapriya" : "Mrs. P. Arularasi");
 
-    // Populate Printable Preview
+    const isBonafide = cat.toLowerCase().includes("bonafide") || title.toLowerCase().includes("bonafide");
+    const isLeave = cat.toLowerCase().includes("leave") || title.toLowerCase().includes("leave");
+
+    // Dynamic document title
+    const docTypeEl = document.getElementById("prevDocTypeTitle");
+    if (docTypeEl) {
+      if (isBonafide) {
+        docTypeEl.textContent = "OFFICIAL APPLICATION FOR BONAFIDE CERTIFICATE";
+      } else if (isLeave) {
+        docTypeEl.textContent = `OFFICIAL APPLICATION FOR LEAVE OF ABSENCE (${(u.studentType || 'Day Scholar').toUpperCase()})`;
+      } else if (cat) {
+        docTypeEl.textContent = `OFFICIAL APPLICATION FOR ON-DUTY (OD) PERMISSION – ${cat.toUpperCase()}`;
+      } else {
+        docTypeEl.textContent = "OFFICIAL APPLICATION FOR ON-DUTY (OD) PERMISSION";
+      }
+    }
+
+    // Dynamic field labels based on request type
+    const catLbl = document.getElementById("prevCatLabel");
+    const evtLbl = document.getElementById("prevEventTitleLabel");
+    const orgLbl = document.getElementById("prevOrganizerLabel");
+    const venLbl = document.getElementById("prevVenueLabel");
+    const rsnLbl = document.getElementById("prevReasonLabel");
+
+    if (catLbl) catLbl.textContent = isLeave ? "Leave Category" : (isBonafide ? "Certificate Category" : "OD Category");
+    if (evtLbl) evtLbl.textContent = isLeave ? "Leave Type / Subject" : (isBonafide ? "Certificate Purpose" : "Event Title");
+    if (orgLbl) orgLbl.textContent = isLeave ? "Hostel / Residence Info" : (isBonafide ? "Issuing Institution" : "Organizing Body");
+    if (venLbl) venLbl.textContent = isLeave ? "Emergency Contact / Loc" : (isBonafide ? "Campus Location" : "Event Venue / City");
+    if (rsnLbl) rsnLbl.textContent = isLeave ? "Reason for Leave" : (isBonafide ? "Purpose & Justification" : "Purpose & Justification");
+
+    // Populate Student Specific Printable Preview Details
     document.getElementById("prevRegNo").textContent = u.identifier || "-";
     document.getElementById("prevStudentName").textContent = u.name || "-";
     document.getElementById("prevDept").textContent = u.department || "Computer Science & Engineering";
-    document.getElementById("prevSection").textContent = u.section || "CSE-A";
+    document.getElementById("prevSection").textContent = sec;
     document.getElementById("prevCategory").textContent = cat;
     document.getElementById("prevDuration").textContent = `${start} to ${end} (${days} Day(s))`;
     document.getElementById("prevEventTitle").textContent = title;
@@ -821,19 +853,24 @@ const StudentPortal = {
         </span>
       `;
     } else {
-      docEl.textContent = "No document attached (Self-Declaration)";
+      docEl.textContent = isBonafide ? "Standard Institutional Verification Record" : "Self-Declaration / Institutional Record";
     }
 
     // STRICT APPROVAL WORKFLOW ROUTE RULES:
     // Workflow A (Bonafide Certificate ONLY): Student -> Class Advisor -> HOD -> Principal (3-Stage)
     // Workflow B (Every other student request): Student -> Class Advisor -> HOD (2-Stage)
     // Non-Bonafide requests (OD - Symposium, Hackathon, Workshop, Internship, IV, Leave, Single/Multi-day) NEVER route to Principal!
-    const isBonafide = cat.toLowerCase().includes("bonafide") || title.toLowerCase().includes("bonafide");
     const reqPrincipal = isBonafide;
 
-    if (document.getElementById("prevRouteAdvisor")) {
-      document.getElementById("prevRouteAdvisor").textContent = "Student's Section";
+    const advRouteEl = document.getElementById("prevRouteAdvisorBlock");
+    if (advRouteEl) {
+      advRouteEl.innerHTML = `1. Class Advisor (<strong>${this.escape(advName)}</strong> - ${this.escape(sec)})`;
     }
+    const hodRouteEl = document.getElementById("prevRouteHODBlock");
+    if (hodRouteEl) {
+      hodRouteEl.innerHTML = `2. Head of Department (<strong>Dr. K. Gopinath</strong> - CSE)${reqPrincipal ? '' : ' — Final Sanction'}`;
+    }
+
     const arrow = document.getElementById("prevRoutePrincipalArrow");
     const pRoute = document.getElementById("prevRoutePrincipal");
     const pBlock = document.getElementById("prevPrincipalBlock");
@@ -842,15 +879,29 @@ const StudentPortal = {
     if (arrow) arrow.style.display = reqPrincipal ? "inline" : "none";
     if (pRoute) {
       pRoute.style.display = reqPrincipal ? "inline" : "none";
-      pRoute.textContent = "3. Principal";
+      pRoute.innerHTML = "3. Principal (<strong>Dr. B. Sanjay Gandhi</strong>)";
     }
+
+    // Dynamic verification signatures blocks
+    const advTitle = document.getElementById("prevAdvTitle");
+    const advSigner = document.getElementById("prevAdvSigner");
+    if (advTitle) advTitle.textContent = `Class Advisor (${sec})`;
+    if (advSigner) advSigner.textContent = advName;
+
+    const hodTitle = document.getElementById("prevHodTitle");
+    const hodSigner = document.getElementById("prevHodSigner");
+    if (hodTitle) hodTitle.textContent = "Head of Department (CSE)";
+    if (hodSigner) hodSigner.textContent = "Dr. K. Gopinath";
+
     if (pBlock) pBlock.style.display = reqPrincipal ? "block" : "none";
     if (vBlocks) vBlocks.style.gridTemplateColumns = reqPrincipal ? "1fr 1fr 1fr" : "1fr 1fr";
 
     document.getElementById("odCategoryStep").style.display = "none";
     document.getElementById("odFormStep").style.display = "none";
     document.getElementById("odPreviewStep").style.display = "block";
-    document.getElementById("odModalHeaderTitle").textContent = isBonafide ? "👁️ Official Bonafide Certificate Application Preview" : "👁️ Official OD Application Preview";
+    document.getElementById("odModalHeaderTitle").textContent = isBonafide
+      ? "👁️ Official Bonafide Certificate Application Preview"
+      : (isLeave ? "👁️ Official Leave Application Preview" : "👁️ Official OD Application Preview");
   },
 
   editOdApplication() {
@@ -872,7 +923,14 @@ const StudentPortal = {
   },
 
   printPreview() {
+    const originalTitle = document.title;
+    document.body.classList.add("print-active-od");
+    document.title = "";
     window.print();
+    setTimeout(() => {
+      document.body.classList.remove("print-active-od");
+      document.title = originalTitle;
+    }, 600);
   },
 
   promptSubmitConfirmation() {
@@ -1349,17 +1407,32 @@ const StudentPortal = {
     const datesEl = document.getElementById("qrCertDates");
     const venueEl = document.getElementById("qrCertVenue");
     const codeEl = document.getElementById("qrCertCode");
+    const docTitleEl = document.getElementById("qrCertDocTitle");
+
+    const isBonafide = req && ((req.odType && req.odType.toLowerCase().includes("bonafide")) || (req.id && req.id.startsWith("EPOCH-BNF")));
+    const isLeave = req && ((req.odType && req.odType.toLowerCase().includes("leave")) || (req.id && req.id.startsWith("EPOCH-LV")));
+
+    if (docTitleEl) {
+      if (isBonafide) {
+        docTitleEl.textContent = "OFFICIAL BONAFIDE CERTIFICATE";
+      } else if (isLeave) {
+        docTitleEl.textContent = "OFFICIAL LEAVE SANCTION CERTIFICATE";
+      } else if (req && req.odType) {
+        docTitleEl.textContent = `OFFICIAL ON-DUTY (OD) SANCTION CERTIFICATE – ${req.odType.toUpperCase()}`;
+      } else {
+        docTitleEl.textContent = "OFFICIAL ON-DUTY (OD) SANCTION CERTIFICATE";
+      }
+    }
 
     if (idEl) idEl.textContent = req ? req.id : id;
     if (stEl) stEl.textContent = req ? `${req.studentName || this.currentUser.name} (${req.regNo || this.currentUser.identifier} - ${req.section || 'CSE-A'})` : this.currentUser.name;
-    if (typeEl) typeEl.textContent = req ? (req.odType || "Technical Symposium") : "Technical Symposium";
+    if (typeEl) typeEl.textContent = req ? (req.odType || (isBonafide ? "Bonafide Certificate" : "On-Duty")) : "On-Duty";
     if (datesEl) datesEl.textContent = req ? `${req.fromDate || req.startDate || '12 Mar 2026'} to ${req.toDate || req.endDate || '13 Mar 2026'}` : "12 Mar 2026 to 13 Mar 2026";
-    if (venueEl) venueEl.textContent = req ? (req.eventDetails || req.venue || "PSG Tech, Coimbatore") : "PSG Tech, Coimbatore";
+    if (venueEl) venueEl.textContent = req ? (req.eventDetails || req.venue || (isBonafide ? "Gnanamani College of Technology, Autonomous Campus" : "Academic Event")) : "Autonomous Campus";
     if (codeEl) codeEl.textContent = req && req.verificationCode ? req.verificationCode : `GCT-OD-VERIFIED-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const sigsEl = document.getElementById("qrDocSignatures");
     if (sigsEl && req) {
-      const isBonafide = (req.odType && req.odType.toLowerCase().includes("bonafide")) || (req.id && req.id.startsWith("EPOCH-BNF"));
       const adv = req.advisorDecision || {};
       const hod = req.hodDecision || {};
       const prin = req.principalDecision || {};
@@ -1386,7 +1459,7 @@ const StudentPortal = {
 
       let html = `<div style="display:flex; gap:10px; width:100%; margin-top:10px;">`;
       html += renderSigBlock(`Class Advisor (${advSec})`, adv, advDef);
-      html += renderSigBlock("Head of Department", hod, "Dr. K. Gopinath");
+      html += renderSigBlock("Head of Department (CSE)", hod, "Dr. K. Gopinath");
       if (isBonafide) {
         html += renderSigBlock("Principal", prin, "Dr. B. Sanjay Gandhi");
       }
@@ -1400,6 +1473,17 @@ const StudentPortal = {
   closeQrModal() {
     const modal = document.getElementById("qrCertificateModal");
     if (modal) modal.style.display = "none";
+  },
+
+  printQrCertificate() {
+    const originalTitle = document.title;
+    document.body.classList.add("print-active-qr");
+    document.title = "";
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("print-active-qr");
+      document.title = originalTitle;
+    }, 600);
   },
 
   // ------------------ Leave Applications (Day Scholar & Hosteller) ------------------
@@ -1802,3 +1886,24 @@ const StudentPortal = {
       .replace(/'/g, "&#039;");
   }
 };
+
+// Global Print Event Handlers to ensure browser headers/footers are suppressed
+window.addEventListener("beforeprint", () => {
+  window.__originalDocTitle = document.title;
+  document.title = "";
+  const odModal = document.getElementById("odModal");
+  const qrModal = document.getElementById("qrCertificateModal");
+  if (odModal && odModal.style.display !== "none") {
+    document.body.classList.add("print-active-od");
+  } else if (qrModal && qrModal.style.display !== "none") {
+    document.body.classList.add("print-active-qr");
+  }
+});
+
+window.addEventListener("afterprint", () => {
+  if (window.__originalDocTitle !== undefined) {
+    document.title = window.__originalDocTitle;
+  }
+  document.body.classList.remove("print-active-od");
+  document.body.classList.remove("print-active-qr");
+});
