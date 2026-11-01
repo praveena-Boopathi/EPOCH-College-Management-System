@@ -862,25 +862,8 @@ const StudentPortal = {
     // Non-Bonafide requests (OD - Symposium, Hackathon, Workshop, Internship, IV, Leave, Single/Multi-day) NEVER route to Principal!
     const reqPrincipal = isBonafide;
 
-    const advRouteEl = document.getElementById("prevRouteAdvisorBlock");
-    if (advRouteEl) {
-      advRouteEl.innerHTML = `1. Class Advisor (<strong>${this.escape(advName)}</strong> - ${this.escape(sec)})`;
-    }
-    const hodRouteEl = document.getElementById("prevRouteHODBlock");
-    if (hodRouteEl) {
-      hodRouteEl.innerHTML = `2. Head of Department (<strong>Dr. K. Gopinath</strong> - CSE)${reqPrincipal ? '' : ' — Final Sanction'}`;
-    }
-
-    const arrow = document.getElementById("prevRoutePrincipalArrow");
-    const pRoute = document.getElementById("prevRoutePrincipal");
     const pBlock = document.getElementById("prevPrincipalBlock");
     const vBlocks = document.getElementById("prevVerificationBlocks");
-
-    if (arrow) arrow.style.display = reqPrincipal ? "inline" : "none";
-    if (pRoute) {
-      pRoute.style.display = reqPrincipal ? "inline" : "none";
-      pRoute.innerHTML = "3. Principal (<strong>Dr. B. Sanjay Gandhi</strong>)";
-    }
 
     // Dynamic verification signatures blocks
     const advTitle = document.getElementById("prevAdvTitle");

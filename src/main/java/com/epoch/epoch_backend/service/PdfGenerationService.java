@@ -301,42 +301,6 @@ public class PdfGenerationService {
         document.add(detailsPara);
         document.add(new Paragraph(" "));
 
-        // Approval History Audit
-        Paragraph auditTitle = new Paragraph("Institutional Approval History:", boldFont);
-        document.add(auditTitle);
-
-        PdfPTable auditTable = new PdfPTable(3);
-        auditTable.setWidthPercentage(100);
-        auditTable.setWidths(new float[]{1.5f, 2f, 2.5f});
-
-        PdfPCell ah1 = new PdfPCell(new Phrase("Stage", boldFont));
-        ah1.setBackgroundColor(new Color(241, 245, 249));
-        auditTable.addCell(ah1);
-
-        PdfPCell ah2 = new PdfPCell(new Phrase("Approver / Role", boldFont));
-        ah2.setBackgroundColor(new Color(241, 245, 249));
-        auditTable.addCell(ah2);
-
-        PdfPCell ah3 = new PdfPCell(new Phrase("Decision Timestamp & Audit", boldFont));
-        ah3.setBackgroundColor(new Color(241, 245, 249));
-        auditTable.addCell(ah3);
-
-        // Advisor row
-        String advApprover = req.getAdvisorDecision() != null ? (String) req.getAdvisorDecision().get("approver") : "Class Advisor";
-        String advTime = req.getAdvisorDecision() != null ? (String) req.getAdvisorDecision().get("timestamp") : "-";
-        auditTable.addCell(new PdfPCell(new Phrase("Class Advisor Review", regularFont)));
-        auditTable.addCell(new PdfPCell(new Phrase(advApprover + " (" + req.getSection() + ")", regularFont)));
-        auditTable.addCell(new PdfPCell(new Phrase("APPROVED • " + advTime, regularFont)));
-
-        // HOD row
-        String hodApprover = req.getHodDecision() != null ? (String) req.getHodDecision().get("approver") : "Dr. K. Gopinath";
-        String hodTime = req.getHodDecision() != null ? (String) req.getHodDecision().get("timestamp") : "-";
-        auditTable.addCell(new PdfPCell(new Phrase("HOD Final Sanction", regularFont)));
-        auditTable.addCell(new PdfPCell(new Phrase(hodApprover + " (HOD-CSE)", regularFont)));
-        auditTable.addCell(new PdfPCell(new Phrase("APPROVED • " + hodTime, regularFont)));
-
-        document.add(auditTable);
-        document.add(new Paragraph(" "));
 
         // 2 Signature Columns ONLY: Class Advisor & HOD (NO Principal)
         PdfPTable sigTable = new PdfPTable(2);

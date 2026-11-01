@@ -1179,7 +1179,7 @@ const App = {
     const catEl = document.getElementById("detCategory");
     if (catEl) {
       const typeLabel = isBonafide ? "Bonafide Certificate" : (isLeave ? (r.leaveType || r.odType || "Leave Application") : (r.odType || "On-Duty Requisition"));
-      const workflowLabel = isBonafide ? "3-Stage Institutional Workflow (Advisor ➔ HOD ➔ Principal)" : "2-Stage Department Workflow (Advisor ➔ HOD Final)";
+      const workflowLabel = isBonafide ? "Institutional Requisition" : "Academic Requisition";
       catEl.innerHTML = `<span class="badge-tag ${isBonafide ? 'badge-teal' : (isLeave ? 'badge-info' : 'badge-primary')}">${this.escape(typeLabel)}</span> <span style="color:#64748b; font-size:11.5px; margin-left:6px;">${workflowLabel}</span>`;
     }
 

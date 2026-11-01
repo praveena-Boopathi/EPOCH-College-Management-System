@@ -4223,6 +4223,11 @@ body.chat-active .assistant-drawer {
   }
 
   /* Universal print hide for non-document app shell elements */
+  #appView,
+  .app-container,
+  .main-wrapper,
+  .content-body,
+  #loginView,
   .sidebar,
   .topbar,
   .dashboard-header,
@@ -4238,6 +4243,16 @@ body.chat-active .assistant-drawer {
   .toast,
   .toast-container,
   #advisorAnnouncementBanner,
+  #urgentAnnouncementsBanner,
+  #statsGrid,
+  .metrics-grid,
+  #studentView,
+  #advisorView,
+  #hodView,
+  #principalView,
+  .assistant-btn,
+  #assistantFloatingBtn,
+  #chatFloatingBtn,
   #demoBanner,
   #themeToggle,
   nav,
@@ -4247,12 +4262,11 @@ body.chat-active .assistant-drawer {
   }
 
   /* When printing OD / Leave / Bonafide Preview modal */
-  body.print-active-od #app,
-  body.print-active-od .main-content {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+  body.print-active-od #appView,
+  body.print-active-od .app-container,
+  body.print-active-od .main-wrapper,
+  body.print-active-od .content-body {
+    display: none !important;
   }
 
   body.print-active-od .modal-overlay:not(#odModal) {
@@ -4300,16 +4314,43 @@ body.chat-active .assistant-drawer {
     border: 1.5px solid #0f172a !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 16mm 20mm !important;
+    padding: 10mm 14mm !important;
     margin: 0 auto !important;
     max-width: 190mm !important;
     box-sizing: border-box !important;
     background: #ffffff !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-document-header {
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-table {
+    margin: 10px 0 !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-table th,
+  body.print-active-od #printablePreviewArea .printable-table td {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  body.print-active-od #printablePreviewArea #prevVerificationBlocks {
+    margin-top: 14px !important;
+    padding-top: 10px !important;
   }
 
   /* When printing QR Certificate modal */
+  body.print-active-qr #appView,
+  body.print-active-qr .app-container,
+  body.print-active-qr .main-wrapper,
+  body.print-active-qr .content-body {
+    display: none !important;
+  }
+
   body.print-active-qr .modal-overlay:not(#qrCertificateModal) {
     display: none !important;
   }
@@ -4351,13 +4392,13 @@ body.chat-active .assistant-drawer {
     border: 1.5px solid #0f172a !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 16mm 20mm !important;
+    padding: 12mm 16mm !important;
     margin: 0 auto !important;
     max-width: 190mm !important;
     box-sizing: border-box !important;
     background: #ffffff !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* General fallback if no specific class was activated */
