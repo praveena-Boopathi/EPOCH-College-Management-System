@@ -11,6 +11,7 @@ const StudentPortal = {
   trackFilter: "ALL",
   trackSearchQuery: "",
   allTrackingRequests: [],
+  activeCategory: null,
 
   async init(user) {
     this.currentUser = user;
@@ -45,15 +46,29 @@ const StudentPortal = {
       const res = await Auth.fetchWithAuth("/api/od/student");
       if (res.ok) {
         this.requests = await res.json();
+        this.updateSummaryMetrics();
         this.renderOdRequests();
+        this.renderLeaves();
+        this.renderBonafides();
+        this.renderTrackingPage();
+        if (this.activeCategory) {
+          this.renderCategoryDetails(this.activeCategory);
+        }
         return;
       }
     } catch (e) {
       console.warn("Falling back to local demo OD requests:", e);
     }
-    if (window.DemoStore && this.currentUser) {
+    if (window.DemoStore && this.currentUser && !Auth.getToken()) {
       this.requests = DemoStore.getOdRequestsForStudent(this.currentUser.identifier);
+      this.updateSummaryMetrics();
       this.renderOdRequests();
+      this.renderLeaves();
+      this.renderBonafides();
+      this.renderTrackingPage();
+      if (this.activeCategory) {
+        this.renderCategoryDetails(this.activeCategory);
+      }
     }
   },
 
@@ -62,7 +77,11 @@ const StudentPortal = {
       const res = await Auth.fetchWithAuth("/api/complaints/student");
       if (res.ok) {
         this.complaints = await res.json();
+        this.updateSummaryMetrics();
         this.renderComplaints();
+        if (this.activeCategory === "COMPLAINTS") {
+          this.renderCategoryDetails("COMPLAINTS");
+        }
         return;
       }
     } catch (e) {
@@ -70,34 +89,337 @@ const StudentPortal = {
     }
     if (window.DemoStore && this.currentUser) {
       this.complaints = DemoStore.getComplaintsForStudent(this.currentUser.identifier);
+      this.updateSummaryMetrics();
       this.renderComplaints();
+      if (this.activeCategory === "COMPLAINTS") {
+        this.renderCategoryDetails("COMPLAINTS");
+      }
     }
   },
 
-  renderOdRequests() {
-    const tbody = document.getElementById("studentRequestsTbody");
-    if (!tbody) return;
+  isLeaveOrBonafide(r) {
+    if (!r) return false;
+    const t = (r.odType || "").toLowerCase();
+    const id = r.id || "";
+    return t.includes("bonafide") || t.includes("leave") || id.startsWith("EPOCH-BNF") || id.startsWith("EPOCH-LV");
+  },
 
-    // Filter to purely On-Duty requests (exclude Bonafide and Leave)
-    const odList = this.requests.filter(r => {
-      const t = (r.odType || "").toLowerCase();
-      const id = r.id || "";
-      return !t.includes("bonafide") && !t.includes("leave") && !id.startsWith("EPOCH-BNF") && !id.startsWith("EPOCH-LV");
-    });
-
-    let pending = 0, approved = 0, rejected = 0;
-    odList.forEach(r => {
-      if (r.status === "APPROVED") approved++;
-      else if (r.status === "REJECTED") rejected++;
-      else pending++;
-    });
+  updateSummaryMetrics() {
+    const list = this.requests || [];
+    const pending = list.filter(r => r.status !== "APPROVED" && r.status !== "REJECTED").length;
+    const approved = list.filter(r => r.status === "APPROVED" && !this.isLeaveOrBonafide(r)).length;
+    const rejected = list.filter(r => r.status === "REJECTED").length;
+    const complaints = (this.complaints || []).length;
 
     const elP = document.getElementById("stMetricPending");
     const elA = document.getElementById("stMetricApproved");
     const elR = document.getElementById("stMetricRejected");
+    const elC = document.getElementById("stMetricComplaints");
+
     if (elP) elP.textContent = pending;
     if (elA) elA.textContent = approved;
     if (elR) elR.textContent = rejected;
+    if (elC) elC.textContent = complaints;
+  },
+
+  showCategoryDetails(category) {
+    this.activeCategory = category;
+
+    // Highlight active card
+    ["stCardPending", "stCardApproved", "stCardRejected", "stCardComplaints"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const activeMap = {
+      PENDING: "stCardPending",
+      APPROVED: "stCardApproved",
+      REJECTED: "stCardRejected",
+      COMPLAINTS: "stCardComplaints"
+    };
+    const activeEl = document.getElementById(activeMap[category]);
+    if (activeEl) activeEl.classList.add("active-card");
+
+    const section = document.getElementById("studentMetricDetailsSection");
+    const mainContent = document.getElementById("studentDashboardMainContent");
+
+    if (section) section.style.display = "block";
+    if (mainContent) mainContent.style.display = "none";
+
+    this.renderCategoryDetails(category);
+
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  },
+
+  closeCategoryDetails() {
+    this.activeCategory = null;
+
+    ["stCardPending", "stCardApproved", "stCardRejected", "stCardComplaints"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const section = document.getElementById("studentMetricDetailsSection");
+    const mainContent = document.getElementById("studentDashboardMainContent");
+
+    if (section) section.style.display = "none";
+    if (mainContent) mainContent.style.display = "block";
+  },
+
+  renderCategoryDetails(category) {
+    const iconEl = document.getElementById("studentMetricDetailsIcon");
+    const titleEl = document.getElementById("studentMetricDetailsTitle");
+    const badgeEl = document.getElementById("studentMetricDetailsBadge");
+    const subtextEl = document.getElementById("studentMetricDetailsSubtext");
+    const thead = document.getElementById("studentMetricDetailsThead");
+    const tbody = document.getElementById("studentMetricDetailsTbody");
+
+    if (!thead || !tbody) return;
+
+    if (category === "PENDING") {
+      const list = (this.requests || []).filter(r => r.status !== "APPROVED" && r.status !== "REJECTED");
+      if (iconEl) iconEl.textContent = "⏳";
+      if (titleEl) titleEl.textContent = "Pending Requests Awaiting Approval";
+      if (badgeEl) {
+        badgeEl.className = "badge-tag badge-warning";
+        badgeEl.textContent = `${list.length} Pending`;
+      }
+      if (subtextEl) subtextEl.textContent = "All submitted applications currently undergoing multi-stage faculty and administrative review.";
+
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Request Type & Purpose</th>
+          <th>Applicable Dates</th>
+          <th>Submitted Date</th>
+          <th>Current Stage</th>
+          <th>Assigned Approver</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:32px; color:#64748b;">🎉 No requests currently awaiting approval. All your submitted applications have completed their review.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(r => {
+        const submittedDate = r.createdAt ? (r.createdAt.includes("T") ? r.createdAt.split("T")[0] : r.createdAt.substring(0, 10)) : (r.submittedDate || "—");
+        let assignedApproverHtml = '<div style="font-size:11px; color:#64748b;">Academic Review Chain</div>';
+        if (r.status === "PENDING_ADVISOR") {
+          const advName = r.assignedReviewerName || (this.currentUser && this.currentUser.section ? `${this.currentUser.section} Advisor` : "Class Advisor");
+          assignedApproverHtml = `<div style="font-weight:700; color:var(--primary); font-size:12px;">Class Advisor</div><div style="font-size:11px; color:#64748b;">${this.escape(advName)}</div>`;
+        } else if (r.status === "PENDING_HOD") {
+          assignedApproverHtml = `<div style="font-weight:700; color:var(--primary); font-size:12px;">Head of Department</div><div style="font-size:11px; color:#64748b;">Dr. K. Gopinath (CSE)</div>`;
+        } else if (r.status === "PENDING_PRINCIPAL") {
+          assignedApproverHtml = `<div style="font-weight:700; color:var(--primary); font-size:12px;">Principal Executive</div><div style="font-size:11px; color:#64748b;">Dr. B. Sanjay Gandhi</div>`;
+        }
+
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>
+              <div style="font-weight:700; color:var(--primary);">${this.escape(r.odType || "Request")}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">${this.escape(r.eventDetails || r.reason || r.purpose || "Institutional Request")}</div>
+            </td>
+            <td>${this.escape(r.fromDate || r.startDate || "")} ${r.toDate && r.toDate !== r.fromDate ? ' to ' + this.escape(r.toDate) : ''}</td>
+            <td><div style="font-size:12px; font-weight:600;">${this.escape(submittedDate)}</div></td>
+            <td><span class="badge-tag badge-secondary">${this.escape(r.currentStage || r.status || "PROCESSING")}</span></td>
+            <td>${assignedApproverHtml}</td>
+            <td>${this.formatStatusBadge(r.status)}</td>
+            <td>
+              <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Request Details & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:4px 9px; font-size:11px;">
+                🔍 View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+    } else if (category === "APPROVED") {
+      const list = (this.requests || []).filter(r => r.status === "APPROVED" && !this.isLeaveOrBonafide(r));
+      if (iconEl) iconEl.textContent = "✅";
+      if (titleEl) titleEl.textContent = "Approved On-Duty Applications";
+      if (badgeEl) {
+        badgeEl.className = "badge-tag badge-approved";
+        badgeEl.textContent = `${list.length} Approved ODs`;
+      }
+      if (subtextEl) subtextEl.textContent = "Official On-Duty applications sanctioned by Head of Department with verified digital signatures and QR certificates.";
+
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Category</th>
+          <th>Event Title & Venue</th>
+          <th>Sanctioned Dates</th>
+          <th>Approval Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:32px; color:#64748b;">📄 No approved On-Duty applications found. Approved requests will appear here with downloadable certificates.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(r => {
+        const approvalDate = r.approvedAt || r.hodApprovalDate || (r.updatedAt ? (r.updatedAt.includes("T") ? r.updatedAt.split("T")[0] : r.updatedAt.substring(0, 10)) : "Approved");
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td><strong>${this.escape(r.odType)}</strong></td>
+            <td>
+              <div style="font-weight:600; color:var(--primary);">${this.escape(r.eventDetails || r.venue || "Academic Event")}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">${this.escape(r.reason || "")}</div>
+            </td>
+            <td>${this.escape(r.fromDate || r.startDate || "")} ${r.toDate && r.toDate !== r.fromDate ? ' to ' + this.escape(r.toDate) : ''}</td>
+            <td><div style="font-size:12px; font-weight:600; color:#047857;">${this.escape(approvalDate)}</div></td>
+            <td><span class="badge-tag badge-approved">✅ SANCTIONED</span></td>
+            <td>
+              <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Request Details" style="padding:4px 9px; font-size:11px;">🔍 View Details</button>
+                <button class="btn btn-sm btn-success" onclick="App.downloadPdf('${r.id}')" title="Download Approved Request" style="background:#059669; color:#fff; border:none; padding:4px 9px; font-size:11px; border-radius:4px; font-weight:600;">📥 Download PDF</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+    } else if (category === "REJECTED") {
+      const list = (this.requests || []).filter(r => r.status === "REJECTED");
+      if (iconEl) iconEl.textContent = "❌";
+      if (titleEl) titleEl.textContent = "Rejected Requests & Audit Log";
+      if (badgeEl) {
+        badgeEl.className = "badge-tag badge-danger";
+        badgeEl.textContent = `${list.length} Rejected`;
+      }
+      if (subtextEl) subtextEl.textContent = "Applications halted during review. Every rejection record maintains reviewer identity and official reason.";
+
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Category</th>
+          <th>Event / Purpose</th>
+          <th>Submitted Date</th>
+          <th>Decision Date</th>
+          <th>Rejected By</th>
+          <th>Rejection Reason</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px; color:#64748b;">👍 No rejected requests recorded. None of your submitted applications have been declined.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(r => {
+        const submittedDate = r.createdAt ? (r.createdAt.includes("T") ? r.createdAt.split("T")[0] : r.createdAt.substring(0, 10)) : (r.submittedDate || "—");
+        const decisionDate = r.rejectedAt || (r.updatedAt ? (r.updatedAt.includes("T") ? r.updatedAt.split("T")[0] : r.updatedAt.substring(0, 10)) : "—");
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td><strong>${this.escape(r.odType || "Request")}</strong></td>
+            <td>
+              <div style="font-weight:600; color:var(--primary);">${this.escape(r.eventDetails || r.reason || r.purpose || "Academic Application")}</div>
+            </td>
+            <td><div style="font-size:12px;">${this.escape(submittedDate)}</div></td>
+            <td><div style="font-size:12px; font-weight:600; color:#b91c1c;">${this.escape(decisionDate)}</div></td>
+            <td><span class="badge-tag badge-danger" style="font-size:10.5px;">${this.escape(r.rejectedBy || r.rejectedByRole || "Reviewer")}</span></td>
+            <td><div style="font-size:11.5px; color:var(--danger); font-weight:500;">${this.escape(r.rejectionReason || "Declined under policy")}</div></td>
+            <td><span class="badge-tag badge-danger">❌ REJECTED</span></td>
+            <td>
+              <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Details & Rejection Audit" style="padding:4px 9px; font-size:11px;">
+                🔍 View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+    } else if (category === "COMPLAINTS") {
+      const list = this.complaints || [];
+      if (iconEl) iconEl.textContent = "🚨";
+      if (titleEl) titleEl.textContent = "Direct Grievances to Principal";
+      if (badgeEl) {
+        badgeEl.className = "badge-tag badge-info";
+        badgeEl.textContent = `${list.length} Complaints`;
+      }
+      if (subtextEl) subtextEl.textContent = "Confidential grievances submitted directly to Principal Dr. B. Sanjay Gandhi with full status tracking.";
+
+      thead.innerHTML = `
+        <tr>
+          <th>Complaint ID</th>
+          <th>Category</th>
+          <th>Subject & Description</th>
+          <th>Submitted Date</th>
+          <th>Current Status</th>
+          <th>Principal Response</th>
+          <th>Action</th>
+        </tr>
+      `;
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:32px; color:#64748b;">🛡️ No direct complaints submitted. Direct grievances are strictly confidential and routed directly to Principal Dr. B. Sanjay Gandhi.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(c => {
+        let statusBadge = '<span class="badge-tag badge-warning">SUBMITTED</span>';
+        if (c.status === "RECEIVED") statusBadge = '<span class="badge-tag badge-info">RECEIVED</span>';
+        else if (c.status === "UNDER_REVIEW") statusBadge = '<span class="badge-tag badge-warning">UNDER REVIEW</span>';
+        else if (c.status === "IN_PROGRESS") statusBadge = '<span class="badge-tag badge-info">IN PROGRESS</span>';
+        else if (c.status === "RESOLVED") statusBadge = '<span class="badge-tag badge-approved">RESOLVED</span>';
+        else if (c.status === "CLOSED") statusBadge = '<span class="badge-tag badge-secondary">CLOSED</span>';
+
+        let responseHtml = '<span style="color:#94a3b8; font-style:italic;">Awaiting Principal review</span>';
+        if (c.principalResponse) {
+          responseHtml = `<div style="background:#f0fdfa; padding:6px 10px; border-radius:6px; font-size:11.5px; border-left:3px solid var(--accent-teal);">
+            <strong style="color:var(--accent-teal);">Principal:</strong> ${this.escape(c.principalResponse)}
+            ${c.respondedAt ? `<div style="font-size:10px; color:#64748b; margin-top:2px;">${this.escape(c.respondedAt)}</div>` : ''}
+          </div>`;
+        }
+
+        const isResolved = c.status === "RESOLVED" || c.status === "CLOSED";
+        const downloadBtn = isResolved
+          ? `<button class="btn btn-sm btn-success" onclick="StudentPortal.downloadComplaintPdf('${c.id}')" title="Download Official Resolution Record" style="padding:3px 8px; font-size:11px;">📥 Resolution Record</button>`
+          : `<button class="btn btn-sm btn-secondary" onclick="StudentPortal.downloadComplaintPdf('${c.id}')" title="Download Complaint Acknowledgement" style="padding:3px 8px; font-size:11px;">📄 Acknowledgement</button>`;
+
+        return `
+          <tr>
+            <td><span class="ref-badge">${c.id}</span></td>
+            <td><span class="badge-tag badge-info">${this.escape(c.category)}</span></td>
+            <td>
+              <div style="font-weight:600; color:var(--primary);">${this.escape(c.subject)}</div>
+              <div style="font-size:11.5px; color:#475569; margin-top:2px;">${this.escape(c.description || "")}</div>
+            </td>
+            <td><div style="font-size:12px;">${this.escape(c.submittedAt || c.createdAt || "Recent")}</div></td>
+            <td>${statusBadge}</td>
+            <td>${responseHtml}</td>
+            <td>
+              <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                <button class="btn btn-sm btn-secondary" onclick="App.viewComplaintDetails('${c.id}')" title="View Confidential Grievance Details" style="padding:3px 8px; font-size:11px;">🔍 View Details</button>
+                ${downloadBtn}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+  },
+
+  renderOdRequests() {
+    this.updateSummaryMetrics();
+    const tbody = document.getElementById("studentRequestsTbody");
+    if (!tbody) return;
+
+    // Filter to purely On-Duty requests (exclude Bonafide and Leave)
+    const odList = (this.requests || []).filter(r => !this.isLeaveOrBonafide(r));
 
     if (odList.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:28px; color:#64748b;">📝 No On-Duty applications submitted yet. Click "Apply for OD" above to start.</td></tr>`;
@@ -484,9 +806,8 @@ const StudentPortal = {
   },
 
   renderComplaints() {
+    this.updateSummaryMetrics();
     const tbody = document.getElementById("studentComplaintsTbody");
-    const cmpMetric = document.getElementById("stMetricComplaints");
-    if (cmpMetric) cmpMetric.textContent = this.complaints.length;
     if (!tbody) return;
 
     if (this.complaints.length === 0) {
@@ -853,7 +1174,7 @@ const StudentPortal = {
         </span>
       `;
     } else {
-      docEl.textContent = isBonafide ? "Standard Institutional Verification Record" : "Self-Declaration / Institutional Record";
+      docEl.textContent = isBonafide ? "Standard Institutional Application" : "Self-Declaration";
     }
 
     // STRICT APPROVAL WORKFLOW ROUTE RULES:
@@ -1078,7 +1399,7 @@ const StudentPortal = {
         </a>
       `;
     } else {
-      docEl.textContent = isBonafide ? "Standard Institutional Verification" : "Self-Declaration / Department Record";
+      docEl.textContent = isBonafide ? "Institutional Application" : "Self-Declaration";
     }
 
     // Status badge
@@ -1593,36 +1914,20 @@ const StudentPortal = {
       });
       if (res.ok) {
         const created = await res.json();
+        this.closeLeaveModal();
+        await this.loadOdRequests();
+        App.refreshNotifications();
         Toast.show(`${category} Leave application submitted to Class Advisor! Ref: ${created.id}`, "success");
       } else {
-        const errText = await res.text();
-        throw new Error(errText || "Submission failed");
+        const errObj = await res.json().catch(() => null);
+        const errMessage = (errObj && errObj.error) ? errObj.error : "Submission failed";
+        Toast.show("Submission Error: " + errMessage, "danger");
       }
     } catch (e) {
-      if (window.DemoStore) {
-        DemoStore.addLeaveRequest({
-          regNo: this.currentUser.identifier,
-          studentName: this.currentUser.name,
-          section: this.currentUser.section || "CSE-A",
-          studentType: category,
-          leaveType: payload.odType,
-          startDate: start,
-          endDate: end,
-          numberOfDays: days,
-          reason: reason,
-          supportingDetails: supportingDetails
-        });
-        Toast.show(`${category} leave recorded in demo state!`, "success");
-      } else {
-        Toast.show("Submission Error: " + e.message, "danger");
-      }
+      Toast.show("Submission Error: " + e.message, "danger");
     } finally {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Leave Letter"; }
     }
-
-    this.closeLeaveModal();
-    await this.loadOdRequests();
-    App.refreshNotifications();
   },
 
   previewLeaveApplication() {
@@ -1713,37 +2018,18 @@ const StudentPortal = {
       });
       if (res.ok) {
         const created = await res.json();
+        this.closeBonafideModal();
+        await this.loadOdRequests();
+        App.refreshNotifications();
         Toast.show("Bonafide certificate request submitted! Ref: " + created.id, "success");
       } else {
-        if (window.DemoStore) {
-          DemoStore.addBonafideRequest({
-            regNo: this.currentUser.identifier,
-            studentName: this.currentUser.name,
-            section: this.currentUser.section || "CSE-A",
-            purpose: purpose,
-            academicYear: year,
-            details: details
-          });
-          Toast.show("Bonafide request submitted in demo state!", "success");
-        }
+        const errObj = await res.json().catch(() => null);
+        const errMessage = (errObj && errObj.error) ? errObj.error : "Failed to submit bonafide";
+        Toast.show("Submission Error: " + errMessage, "danger");
       }
     } catch (e) {
-      if (window.DemoStore) {
-        DemoStore.addBonafideRequest({
-          regNo: this.currentUser.identifier,
-          studentName: this.currentUser.name,
-          section: this.currentUser.section || "CSE-A",
-          purpose: purpose,
-          academicYear: year,
-          details: details
-        });
-        Toast.show("Bonafide request submitted in demo state!", "success");
-      }
+      Toast.show("Submission Error: " + e.message, "danger");
     }
-
-    this.closeBonafideModal();
-    await this.loadOdRequests();
-    App.refreshNotifications();
   },
 
   // ------------------ Student Complaints (Direct to Principal) ------------------
@@ -1803,48 +2089,20 @@ const StudentPortal = {
         })
       });
 
-      if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.addComplaint({
-            regNo: this.currentUser.identifier,
-            studentName: this.currentUser.name,
-            section: this.currentUser.section || "CSE-A",
-            department: this.currentUser.department || "CSE",
-            year: this.currentUser.year || this.currentUser.academicYear || "IV Year",
-            studentType: this.currentUser.studentType || "Day Scholar",
-            category: cat,
-            subject: sub,
-            description: desc,
-            supportingInfo: supp
-          });
-        }
-      }
-
-      this.closeComplaintModal();
-      document.getElementById("complaintForm").reset();
-      await this.loadComplaints();
-      App.refreshNotifications();
-      Toast.show("Confidential complaint delivered directly to Principal Dr. B. Sanjay Gandhi!", "success");
-    } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.addComplaint({
-          regNo: this.currentUser.identifier,
-          studentName: this.currentUser.name,
-          section: this.currentUser.section || "CSE-A",
-          department: this.currentUser.department || "CSE",
-          year: this.currentUser.year || this.currentUser.academicYear || "IV Year",
-          studentType: this.currentUser.studentType || "Day Scholar",
-          category: cat,
-          subject: sub,
-          description: desc,
-          supportingInfo: supp
-        });
+      if (res.ok) {
         this.closeComplaintModal();
+        const f = document.getElementById("complaintForm");
+        if (f) f.reset();
         await this.loadComplaints();
-        Toast.show("Confidential complaint logged in Principal inbox!", "success");
+        App.refreshNotifications();
+        Toast.show("Confidential complaint delivered directly to Principal Dr. B. Sanjay Gandhi!", "success");
       } else {
-        Toast.show("Submission Error: " + err.message, "danger");
+        const errObj = await res.json().catch(() => null);
+        const errMessage = (errObj && errObj.error) ? errObj.error : "Failed to deliver complaint to Principal";
+        Toast.show("Submission Error: " + errMessage, "danger");
       }
+    } catch (err) {
+      Toast.show("Submission Error: " + err.message, "danger");
     } finally {
       btn.disabled = false;
       btn.textContent = "Confirm & Submit Directly to Principal";

@@ -53,7 +53,7 @@ public class AnnouncementService {
         List<String> rawSections = req.getTargetSections();
         List<String> selectedSections = new ArrayList<>();
 
-        if (rawSections != null && !rawSections.isEmpty()) {
+        if (rawSections != null) {
             for (String s : rawSections) {
                 if (s == null) continue;
                 String clean = s.trim().toUpperCase();
@@ -68,33 +68,37 @@ public class AnnouncementService {
                     if (!selectedSections.contains("CSE-C")) selectedSections.add("CSE-C");
                 }
             }
+        } else if (req.getTargetSection() != null && !req.getTargetSection().trim().isEmpty()) {
+            // Fallback to legacy single targetSection only if targetSections property was omitted
+            String rawTargetSec = req.getTargetSection().trim().toUpperCase();
+            if (rawTargetSec.equals("ALL") || rawTargetSec.equals("ALL_STUDENTS")) {
+                selectedSections.add("ALL");
+            } else {
+                if (rawTargetSec.contains("CSE-A") || "A".equals(rawTargetSec)) {
+                    if (!selectedSections.contains("CSE-A")) selectedSections.add("CSE-A");
+                }
+                if (rawTargetSec.contains("CSE-B") || "B".equals(rawTargetSec)) {
+                    if (!selectedSections.contains("CSE-B")) selectedSections.add("CSE-B");
+                }
+                if (rawTargetSec.contains("CSE-C") || "C".equals(rawTargetSec)) {
+                    if (!selectedSections.contains("CSE-C")) selectedSections.add("CSE-C");
+                }
+            }
         }
 
-        // Fallback to legacy single targetSection if targetSections was empty
         if (selectedSections.isEmpty()) {
-            String rawTargetSec = req.getTargetSection() != null ? req.getTargetSection().trim().toUpperCase() : "ALL";
-            if (rawTargetSec.contains("CSE-A") || "A".equals(rawTargetSec)) {
-                selectedSections.add("CSE-A");
-            } else if (rawTargetSec.contains("CSE-B") || "B".equals(rawTargetSec)) {
-                selectedSections.add("CSE-B");
-            } else if (rawTargetSec.contains("CSE-C") || "C".equals(rawTargetSec)) {
-                selectedSections.add("CSE-C");
-            } else {
-                selectedSections = new ArrayList<>(List.of("ALL"));
-            }
+            throw new IllegalArgumentException("At least one target section or audience must be selected.");
         }
 
         // 4. Role-Based Jurisdiction & Scope Validation
         if (sender.getRole() == UserRole.ADVISOR) {
             // Determine advisor's authoritative assigned section
             String assignedSection = sender.getSection() != null ? sender.getSection().trim().toUpperCase() : null;
-            if (assignedSection == null || assignedSection.isEmpty()) {
-                String cleanId = sender.getIdentifier() != null ? sender.getIdentifier().trim().toLowerCase() : "";
-                if ("arularasi".equals(cleanId)) assignedSection = "CSE-A";
-                else if ("divyabharathi".equals(cleanId) || "dhivyabharathi".equals(cleanId)) assignedSection = "CSE-B";
-                else if ("rajavathijayapriya".equals(cleanId) || "rajavathi".equals(cleanId)) assignedSection = "CSE-C";
-                else assignedSection = "CSE-A";
-            }
+            String cleanId = sender.getIdentifier() != null ? sender.getIdentifier().trim().toLowerCase() : "";
+            if ("arularasi".equals(cleanId)) assignedSection = "CSE-A";
+            else if ("divyabharathi".equals(cleanId) || "dhivyabharathi".equals(cleanId)) assignedSection = "CSE-B";
+            else if ("rajavathijayapriya".equals(cleanId) || "rajavathi".equals(cleanId)) assignedSection = "CSE-C";
+            if (assignedSection == null || assignedSection.isEmpty()) assignedSection = "CSE-A";
 
             // Class Advisors must only be allowed to publish to their assigned section
             if (selectedSections.contains("ALL") ||
@@ -109,8 +113,19 @@ public class AnnouncementService {
             }
 
             selectedSections = new ArrayList<>(List.of(assignedSection));
-        } else if (sender.getRole() == UserRole.HOD || sender.getRole() == UserRole.PRINCIPAL) {
-            // HOD & Principal are authorized for any combination of CSE-A, CSE-B, CSE-C or ALL
+        } else if (sender.getRole() == UserRole.HOD) {
+            // HOD (CSE) can publish to any CSE section or combination of CSE sections (CSE-A, CSE-B, CSE-C) or ALL
+            if (selectedSections.contains("ALL")) {
+                selectedSections = new ArrayList<>(List.of("ALL"));
+            } else {
+                for (String sec : selectedSections) {
+                    if (!sec.equals("CSE-A") && !sec.equals("CSE-B") && !sec.equals("CSE-C")) {
+                        throw new SecurityException("Unauthorized: HOD (CSE) can only publish announcements to CSE sections (CSE-A, CSE-B, CSE-C).");
+                    }
+                }
+            }
+        } else if (sender.getRole() == UserRole.PRINCIPAL) {
+            // Principal can publish to all permitted student sections or college-wide (ALL)
             if (selectedSections.contains("ALL")) {
                 selectedSections = new ArrayList<>(List.of("ALL"));
             }
@@ -242,6 +257,15 @@ public class AnnouncementService {
                     : ("📢 Class Announcement (" + req.getTargetAudienceLabel() + "): " + req.getTitle());
             String notifType = targetSections.contains("ALL") ? "ANNOUNCEMENT" : "CLASS_ANNOUNCEMENT";
 
+            String senderRoleLabel = sender.getRole().name();
+            if (sender.getRole() == UserRole.ADVISOR) {
+                senderRoleLabel = "Class Advisor (" + (sender.getSection() != null ? sender.getSection() : "CSE") + ")";
+            } else if (sender.getRole() == UserRole.HOD) {
+                senderRoleLabel = "Head of Department (CSE)";
+            } else if (sender.getRole() == UserRole.PRINCIPAL) {
+                senderRoleLabel = "Principal";
+            }
+
             // Deliver notifications via NotificationService (immediate in-memory + Firestore)
             for (String studentRegNo : uniqueStudentRegNos) {
                 notificationService.createNotification(
@@ -251,7 +275,10 @@ public class AnnouncementService {
                         notifType,
                         req.getId(),
                         null,
-                        "STUDENT"
+                        sender.getRole().name(),
+                        "Institutional Notice",
+                        sender.getName(),
+                        senderRoleLabel
                 );
             }
         } catch (Exception ex) {
@@ -337,6 +364,9 @@ public class AnnouncementService {
         // A student sees only notices targeted to their section OR targeted to ALL students
         if (user.getRole() == UserRole.STUDENT) {
             String studentSec = user.getSection() != null ? user.getSection().trim().toUpperCase() : "";
+            if ("A".equals(studentSec)) studentSec = "CSE-A";
+            else if ("B".equals(studentSec)) studentSec = "CSE-B";
+            else if ("C".equals(studentSec)) studentSec = "CSE-C";
 
             // If a specific student was targeted
             if (a.getTargetStudentId() != null && !a.getTargetStudentId().trim().isEmpty()) {
@@ -362,6 +392,10 @@ public class AnnouncementService {
         // Advisor view: sees their sent notices, announcements containing their section, or college-wide notices
         if (user.getRole() == UserRole.ADVISOR) {
             String advSec = user.getSection() != null ? user.getSection().trim().toUpperCase() : "";
+            if ("A".equals(advSec)) advSec = "CSE-A";
+            else if ("B".equals(advSec)) advSec = "CSE-B";
+            else if ("C".equals(advSec)) advSec = "CSE-C";
+
             List<String> targetSecs = a.getTargetSections();
             if (targetSecs != null && !targetSecs.isEmpty()) {
                 return targetSecs.contains("ALL") || targetSecs.contains(advSec);

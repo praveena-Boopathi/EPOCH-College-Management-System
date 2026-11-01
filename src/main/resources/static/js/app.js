@@ -1028,6 +1028,14 @@ const App = {
     if (window.ChatApp && ChatApp.refreshChatBadge) {
       ChatApp.refreshChatBadge();
     }
+
+    // Live refresh notification inbox list if currently visible
+    try {
+      const notifsContainer = document.getElementById("notificationsContainer") || document.getElementById("notificationsList");
+      if (notifsContainer && notifsContainer.offsetParent !== null) {
+        this.loadNotifications();
+      }
+    } catch (e) {}
   },
 
   isRequestModalOpening: false,
@@ -1061,11 +1069,36 @@ const App = {
     }
   },
 
-  async viewRequestDetails(requestId) {
+  async viewRequestDetails(requestId, notifId) {
     if (!requestId) {
       Toast.show("Invalid request reference.", "warning");
       return;
     }
+    const cleanId = String(requestId).trim().replace(/^[#\s]+/, '').replace(/[\s"']+$/, '');
+    if (notifId) {
+      this.markNotifRead(notifId);
+    }
+
+    // Defensive routing if non-academic reference was passed
+    if (cleanId.startsWith("EPOCH-CMP-") || cleanId.startsWith("CMP-")) {
+      return this.viewComplaintDetails(cleanId, notifId);
+    }
+    if (cleanId.startsWith("RCPT-")) {
+      return this.downloadFeeReceipt(cleanId, notifId);
+    }
+    if (cleanId.startsWith("FEE-") || cleanId.startsWith("PAY-")) {
+      this.switchTab('fees');
+      return;
+    }
+    if (cleanId.startsWith("ANN-")) {
+      this.switchTab('announcements');
+      return;
+    }
+    if (cleanId.startsWith("CONV-") || cleanId.startsWith("REQ-")) {
+      this.switchTab('chat');
+      return;
+    }
+
     if (this.isRequestModalOpening) return;
     this.isRequestModalOpening = true;
 
@@ -1074,21 +1107,29 @@ const App = {
     try {
       let req = null;
       try {
-        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}`);
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(cleanId)}`);
         if (res.ok) {
           req = await res.json();
         } else if (res.status === 403) {
-          throw new Error("Access Denied: You are not authorized to view this request.");
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Access Denied: You are not authorized to view this request.");
         } else if (res.status === 404) {
-          throw new Error("Referenced request record was not found in institutional archives.");
+          if (window.DemoStore) {
+            req = DemoStore.getOdRequests().find(x => x.id === cleanId) ||
+                  DemoStore.getBonafideRequests().find(x => x.id === cleanId) ||
+                  DemoStore.getLeaveRequests().find(x => x.id === cleanId);
+          }
+          if (!req) {
+            throw new Error(`Referenced request record (${cleanId}) was not found in institutional archives.`);
+          }
         } else {
           throw new Error(`Unable to load request (HTTP ${res.status})`);
         }
       } catch (fetchErr) {
-        if (!Auth.getToken() && window.DemoStore) {
-          req = DemoStore.getOdRequests().find(x => x.id === requestId) ||
-                DemoStore.getBonafideRequests().find(x => x.id === requestId) ||
-                DemoStore.getLeaveRequests().find(x => x.id === requestId);
+        if (window.DemoStore && !req) {
+          req = DemoStore.getOdRequests().find(x => x.id === cleanId) ||
+                DemoStore.getBonafideRequests().find(x => x.id === cleanId) ||
+                DemoStore.getLeaveRequests().find(x => x.id === cleanId);
         }
         if (!req) {
           throw fetchErr;
@@ -1101,6 +1142,79 @@ const App = {
       Toast.show(err.message || "Failed to open request details.", "danger");
     } finally {
       this.isRequestModalOpening = false;
+    }
+  },
+
+  async viewComplaintDetails(complaintId, notifId) {
+    if (!complaintId) return;
+    if (notifId) {
+      this.markNotifRead(notifId);
+    }
+    const user = Auth.getUser();
+
+    // If Principal: open executive review & resolution modal
+    if (user && user.role === "PRINCIPAL") {
+      if (window.PrincipalPortal && typeof PrincipalPortal.openComplaintModal === "function") {
+        await PrincipalPortal.openComplaintModal(complaintId);
+        return;
+      }
+    }
+
+    // If Student: open complaint modal or download record
+    try {
+      const res = await Auth.fetchWithAuth(`/api/complaints/${encodeURIComponent(complaintId)}`);
+      if (res.ok) {
+        const c = await res.json();
+        const info = `Subject: ${c.subject || 'Student Grievance'}\nStatus: ${c.status || 'SUBMITTED'}\nCategory: ${c.category || 'General'}${c.principalResponse ? '\nPrincipal Response: ' + c.principalResponse : ''}`;
+        if (window.confirm(`Confidential Student Grievance (${c.id})\n\n${info}\n\nWould you like to download the official resolution record (PDF)?`)) {
+          this.downloadComplaintPdf(complaintId);
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not fetch complaint:", e);
+    }
+
+    this.downloadComplaintPdf(complaintId);
+  },
+
+  async downloadFeeReceipt(receiptId, notifId) {
+    if (!receiptId) return;
+    if (notifId) {
+      this.markNotifRead(notifId);
+    }
+    try {
+      const token = Auth.getToken();
+      const res = await fetch(`/api/fee/receipts/${encodeURIComponent(receiptId)}/pdf`, {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      if (!res.ok) {
+        Toast.show("Official verified receipt PDF is currently unavailable.", "warning");
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EPOCH_Fee_Receipt_${receiptId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      Toast.show("Verified institutional fee receipt downloaded!", "success");
+    } catch (err) {
+      Toast.show("Receipt download failed: " + err.message, "danger");
+    }
+  },
+
+  async markAllNotificationsRead() {
+    try {
+      await Auth.fetchWithAuth("/api/notifications/mark-all-read", { method: "POST" });
+      await this.loadNotifications();
+      this.refreshNotifications();
+      Toast.show("All notifications marked as read.", "success");
+    } catch (e) {
+      console.error("Mark all read failed:", e);
     }
   },
 
@@ -1247,26 +1361,649 @@ const App = {
       sigEl.innerHTML = this.buildDigitalSignaturesHtml(r, isBonafide);
     }
 
+    // Render interactive decision & review action controls for authorized personnel
+    this.renderActionPanel(r);
+  },
+
+  isAssignedAdvisorForRequest(user, r) {
+    if (!user || user.role !== "ADVISOR") return false;
+    const reqSec = (r.section || "").trim().toUpperCase();
+    const userSec = (user.section || "").trim().toUpperCase();
+    const cleanId = (user.identifier || user.username || "").trim().toLowerCase();
+
+    const normalize = s => {
+      if (!s) return "";
+      const str = s.toUpperCase().trim();
+      if (str.endsWith("-C") || str.endsWith(" C") || str.endsWith("_C") || str === "C" || str === "SEC-C" || str === "SECTION C" || str === "CSE-C") return "C";
+      if (str.endsWith("-B") || str.endsWith(" B") || str.endsWith("_B") || str === "B" || str === "SEC-B" || str === "SECTION B" || str === "CSE-B") return "B";
+      if (str.endsWith("-A") || str.endsWith(" A") || str.endsWith("_A") || str === "A" || str === "SEC-A" || str === "SECTION A" || str === "CSE-A") return "A";
+      const m = str.match(/[-_ ]([A-C])\b/) || str.match(/\b([A-C])\b/);
+      return m ? m[1] : "";
+    };
+
+    const rNorm = normalize(reqSec);
+    const uNorm = normalize(userSec);
+
+    // Section matching: when both sections are known, they MUST match
+    if (uNorm && rNorm) {
+      return uNorm === rNorm;
+    }
+
+    // Direct identifier matching for authoritative faculty
+    if (rNorm === "A" && (cleanId.includes("arula") || cleanId.includes("arasi"))) return true;
+    if (rNorm === "B" && (cleanId.includes("divya") || cleanId.includes("dhivya"))) return true;
+    if (rNorm === "C" && (cleanId.includes("raja") || cleanId.includes("jayapriya"))) return true;
+
+    if (r.assignedReviewerId && cleanId && r.assignedReviewerId.toLowerCase() === cleanId) return true;
+
+    return false;
+  },
+
+  isHodForRequest(user, r) {
+    if (!user) return false;
+    if (user.role === "HOD") return true;
+    const cleanId = (user.identifier || user.username || "").trim().toLowerCase();
+    return cleanId.includes("gopinath") || cleanId === "hod";
+  },
+
+  isPrincipalForRequest(user, r) {
+    if (!user) return false;
+    if (user.role === "PRINCIPAL") return true;
+    const cleanId = (user.identifier || user.username || "").trim().toLowerCase();
+    return cleanId.includes("sanjay") || cleanId.includes("gandhi") || cleanId.includes("principal");
+  },
+
+  renderActionPanel(r) {
+    const actionPanelEl = document.getElementById("detActionPanel");
     const actionExtraEl = document.getElementById("detActionExtra");
-    if (actionExtraEl) {
-      if (r.status === "APPROVED") {
-        if (isBonafide) {
-          actionExtraEl.innerHTML = `
-            <button class="btn btn-primary btn-sm" onclick="App.downloadPdf('${r.id}');" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-              📜 Download Approved Request (Bonafide Certificate)
-            </button>
-          `;
-        } else {
-          actionExtraEl.innerHTML = `
-            <button class="btn btn-success btn-sm" onclick="App.downloadPdf('${r.id}');" style="background:#059669; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-              📥 Download Approved Request
-            </button>
+    if (!actionPanelEl && !actionExtraEl) return;
+
+    const user = Auth.getUser();
+    const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
+
+    if (actionPanelEl) actionPanelEl.innerHTML = "";
+    if (actionExtraEl) actionExtraEl.innerHTML = "";
+
+    // 1. If request is APPROVED: provide official download button
+    if (r.status === "APPROVED") {
+      const dlBtnText = isBonafide ? "📜 Download Approved Request (Bonafide Certificate)" : "📥 Download Approved Request";
+      const dlBtnClass = isBonafide ? "btn btn-primary btn-sm" : "btn btn-success btn-sm";
+      const extraHtml = `
+        <button class="${dlBtnClass}" onclick="App.downloadPdf('${r.id}');" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+          ${dlBtnText}
+        </button>
+      `;
+      if (actionExtraEl) actionExtraEl.innerHTML = extraHtml;
+      if (actionPanelEl) {
+        actionPanelEl.innerHTML = `
+          <div style="margin-top:16px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div style="font-size:12.5px; color:#065f46;">
+              <strong>✅ Institutional Sanction Complete:</strong> This request has been officially approved with registered electronic signatures.
+            </div>
+            ${extraHtml}
+          </div>
+        `;
+      }
+      return;
+    }
+
+    // 2. If request is REJECTED:
+    if (r.status === "REJECTED") {
+      const rejHtml = `
+        <div style="margin-top:16px; padding:12px 16px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; font-size:12.5px; color:#991b1b;">
+          <strong>❌ Request Halted / Rejected:</strong> ${this.escape(r.rejectionReason || "No rejection reason provided.")}
+          <div style="font-size:11.5px; color:#b91c1c; margin-top:3px;">
+            Rejected by: ${this.escape(r.rejectedBy || "Authorized Authority")} • Download option is unavailable for rejected requests.
+          </div>
+        </div>
+      `;
+      if (actionPanelEl) actionPanelEl.innerHTML = rejHtml;
+      if (actionExtraEl) actionExtraEl.innerHTML = `<span style="font-size:12px; color:var(--danger); font-weight:600;">❌ Request halted / rejected. Download option is unavailable.</span>`;
+      return;
+    }
+
+    // 3. Request is PENDING_ADVISOR:
+    if (r.status === "PENDING_ADVISOR") {
+      const isAssigned = this.isAssignedAdvisorForRequest(user, r);
+      if (isAssigned) {
+        // Authenticated & Authorized Class Advisor!
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div class="card" style="margin-top:18px; border:2px solid #059669; background:#f0fdf4; border-radius:8px; padding:16px; box-shadow:0 4px 12px rgba(5,150,105,0.08);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:20px;">✍️</span>
+                  <div>
+                    <h4 style="font-size:14px; font-weight:800; color:#065f46; margin:0;">
+                      Class Advisor Official Review & Endorsement (Stage 1 of ${isBonafide ? '3' : '2'})
+                    </h4>
+                    <div style="font-size:11.5px; color:#047857; margin-top:2px;">
+                      Assigned Section: <strong>${this.escape(r.section || 'CSE')}</strong> • Signatory: <strong>${this.escape((user && user.name) || 'Class Advisor')}</strong>
+                    </div>
+                  </div>
+                </div>
+                <span class="badge-tag badge-warning">Awaiting Your Action</span>
+              </div>
+
+              <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; margin-bottom:14px;">
+                ℹ️ <strong>Advisor Verification Notice:</strong> Please verify the student applicant details, duration, and supporting documents above. Accepting will endorse this requisition with your <strong>Official Registered Electronic Signature</strong> and automatically route it to the <strong>Head of Department (Dr. K. Gopinath)</strong>.
+              </div>
+
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="detReviewCommentInput" style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px; display:block;">
+                  Advisor Review Comments / Endorsement Remarks (Optional):
+                </label>
+                <input type="text" id="detReviewCommentInput" class="form-control" placeholder="e.g., Records and attendance verified. Recommended for departmental sanction." style="font-size:12.5px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px;">
+              </div>
+
+              <div id="detRejectionReasonGroup" style="display:none; margin-bottom:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:12px;">
+                <label for="detRejectionReasonInput" style="font-size:12px; font-weight:700; color:#b91c1c; margin-bottom:4px; display:block;">
+                  Mandatory Rejection Reason * (State clear justification for student audit record):
+                </label>
+                <textarea id="detRejectionReasonInput" rows="2" class="form-control" placeholder="Specify reasons such as insufficient attendance, overlapping assessment schedules, or incomplete documentation..." style="font-size:12.5px; background:#fff; border:1.5px solid #dc2626; border-radius:6px; padding:8px 12px;"></textarea>
+                <div style="font-size:11px; color:#991b1b; margin-top:4px;">
+                  ⚠️ Rejection is final and terminates the workflow. The student will be immediately notified with this reason.
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                  <button type="button" id="btnAdvisorApprove" class="btn btn-primary" onclick="App.advisorActionFromModal('${r.id}', true)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#059669; border-color:#059669; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>✅</span> Accept & Endorse Request
+                  </button>
+                  <button type="button" id="btnAdvisorDecline" class="btn btn-danger" onclick="App.advisorActionFromModal('${r.id}', false)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#dc2626; border-color:#dc2626; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>❌</span> Decline Request
+                  </button>
+                </div>
+                <div style="font-size:11.5px; color:#64748b; font-style:italic;">
+                  ✍️ Authorized Electronic Signature snapshot will be applied upon acceptance.
+                </div>
+              </div>
+            </div>
           `;
         }
-      } else if (r.status === "REJECTED") {
-        actionExtraEl.innerHTML = `<span style="font-size:12px; color:var(--danger); font-weight:600;">❌ Request halted / rejected. Download option is unavailable for rejected requests.</span>`;
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm btn-primary" onclick="App.advisorActionFromModal('${r.id}', true)" style="background:#059669; border-color:#059669; color:#fff; font-weight:600;">
+                ✅ Accept & Endorse
+              </button>
+              <button type="button" class="btn btn-sm btn-danger" onclick="App.advisorActionFromModal('${r.id}', false)" style="background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600;">
+                ❌ Decline
+              </button>
+            </div>
+          `;
+        }
+        return;
       } else {
-        actionExtraEl.innerHTML = `<span style="font-size:12px; color:#64748b;">⏳ Request is pending approval. Download Approved Request option will unlock upon final sanction.</span>`;
+        // Not the assigned advisor (could be student, another section's advisor, or other staff)
+        let note = "⏳ Request is awaiting Class Advisor review & endorsement.";
+        if (user && user.role === "ADVISOR") {
+          const advName = r.assignedReviewerName || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
+          note = `🔒 <strong>Section Isolation Audit:</strong> This request belongs to Section <strong>${this.escape(r.section || 'CSE')}</strong> (Assigned Advisor: <strong>${this.escape(advName)}</strong>). You are viewing this record in read-only audit mode.`;
+        }
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div style="margin-top:16px; padding:12px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; color:#64748b;">
+              ${note}
+            </div>
+          `;
+        }
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `<span style="font-size:12px; color:#64748b;">⏳ In Queue: Awaiting Class Advisor review</span>`;
+        }
+        return;
+      }
+    }
+
+    // 4. Request is PENDING_HOD:
+    if (r.status === "PENDING_HOD") {
+      const isHod = this.isHodForRequest(user, r);
+      if (isHod) {
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div class="card" style="margin-top:18px; border:2px solid #2563eb; background:#eff6ff; border-radius:8px; padding:16px; box-shadow:0 4px 12px rgba(37,99,235,0.08);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:20px;">🏛️</span>
+                  <div>
+                    <h4 style="font-size:14px; font-weight:800; color:#1e40af; margin:0;">
+                      Head of Department Official Review & Sanction (Stage 2 of ${isBonafide ? '3' : '2'})
+                    </h4>
+                    <div style="font-size:11.5px; color:#1d4ed8; margin-top:2px;">
+                      Department: <strong>Computer Science & Engineering</strong> • Signatory: <strong>Dr. K. Gopinath (HOD-CSE)</strong>
+                    </div>
+                  </div>
+                </div>
+                <span class="badge-tag badge-warning">Awaiting HOD Decision</span>
+              </div>
+
+              <div style="background:#ffffff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; margin-bottom:14px;">
+                ℹ️ <strong>Departmental Sanction Notice:</strong> Class Advisor verification is complete. ${isBonafide ? 'Approving this Bonafide Certificate will endorse it and forward to the Principal for executive institutional seal.' : 'Approving this request will apply your <strong>Official Digital Signature</strong>, grant final academic sanction, and unlock the digitally signed official requisition PDF for the student.'}
+              </div>
+
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="detHodReviewCommentInput" style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px; display:block;">
+                  HOD Official Remarks / Sanction Notes (Optional):
+                </label>
+                <input type="text" id="detHodReviewCommentInput" class="form-control" placeholder="e.g., Departmental sanction granted. Attendance exemption approved." style="font-size:12.5px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px;">
+              </div>
+
+              <div id="detHodRejectionReasonGroup" style="display:none; margin-bottom:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:12px;">
+                <label for="detHodRejectionReasonInput" style="font-size:12px; font-weight:700; color:#b91c1c; margin-bottom:4px; display:block;">
+                  Mandatory Rejection Reason * (State clear justification for student audit record):
+                </label>
+                <textarea id="detHodRejectionReasonInput" rows="2" class="form-control" placeholder="State departmental reason for rejection..." style="font-size:12.5px; background:#fff; border:1.5px solid #dc2626; border-radius:6px; padding:8px 12px;"></textarea>
+                <div style="font-size:11px; color:#991b1b; margin-top:4px;">
+                  ⚠️ Rejection is final and terminates the workflow. The student will be immediately notified with this reason.
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                  <button type="button" id="btnHodApprove" class="btn btn-primary" onclick="App.hodActionFromModal('${r.id}', true)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#2563eb; border-color:#2563eb; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>✅</span> ${isBonafide ? 'Endorse & Forward to Principal' : 'Final Sanction & Approve'}
+                  </button>
+                  <button type="button" id="btnHodDecline" class="btn btn-danger" onclick="App.hodActionFromModal('${r.id}', false)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#dc2626; border-color:#dc2626; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>❌</span> Decline Request
+                  </button>
+                </div>
+                <div style="font-size:11.5px; color:#64748b; font-style:italic;">
+                  ✍️ Authorized Electronic Signature snapshot will be applied upon approval.
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm btn-primary" onclick="App.hodActionFromModal('${r.id}', true)" style="background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600;">
+                ✅ ${isBonafide ? 'Endorse & Forward' : 'Sanction & Approve'}
+              </button>
+              <button type="button" class="btn btn-sm btn-danger" onclick="App.hodActionFromModal('${r.id}', false)" style="background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600;">
+                ❌ Decline
+              </button>
+            </div>
+          `;
+        }
+        return;
+      } else {
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div style="margin-top:16px; padding:12px 16px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; font-size:12px; color:#1e40af;">
+              ⏳ <strong>Workflow Progress:</strong> Endorsed by Class Advisor with digital signature. In queue for Head of Department (Dr. K. Gopinath) review.
+            </div>
+          `;
+        }
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `<span style="font-size:12px; color:#64748b;">⏳ In Queue: Awaiting Head of Department sanction</span>`;
+        }
+        return;
+      }
+    }
+
+    // 5. Request is PENDING_PRINCIPAL (Bonafide only):
+    if (r.status === "PENDING_PRINCIPAL") {
+      const isPrin = this.isPrincipalForRequest(user, r);
+      if (isPrin) {
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div class="card" style="margin-top:18px; border:2px solid #7c3aed; background:#f5f3ff; border-radius:8px; padding:16px; box-shadow:0 4px 12px rgba(124,58,237,0.08);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:20px;">🏛️</span>
+                  <div>
+                    <h4 style="font-size:14px; font-weight:800; color:#5b21b6; margin:0;">
+                      Principal Final Executive Sanction (Stage 3 of 3)
+                    </h4>
+                    <div style="font-size:11.5px; color:#6d28d9; margin-top:2px;">
+                      Institutional Authority: <strong>Gnanamani College of Technology</strong> • Signatory: <strong>Dr. B. Sanjay Gandhi (Principal)</strong>
+                    </div>
+                  </div>
+                </div>
+                <span class="badge-tag badge-warning">Awaiting Principal Sanction</span>
+              </div>
+
+              <div style="background:#ffffff; border:1px solid #ddd6fe; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; margin-bottom:14px;">
+                ℹ️ <strong>Executive Seal Notice:</strong> Class Advisor and HOD endorsements are verified. Granting executive sanction will apply your <strong>Official Principal Digital Signature</strong> and finalize the official Bonafide Certificate.
+              </div>
+
+              <div class="form-group" style="margin-bottom:12px;">
+                <label for="detPrinReviewCommentInput" style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px; display:block;">
+                  Principal Executive Remarks (Optional):
+                </label>
+                <input type="text" id="detPrinReviewCommentInput" class="form-control" placeholder="e.g., Institutional sanction granted. Certificate issued." style="font-size:12.5px; background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px;">
+              </div>
+
+              <div id="detPrinRejectionReasonGroup" style="display:none; margin-bottom:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:12px;">
+                <label for="detPrinRejectionReasonInput" style="font-size:12px; font-weight:700; color:#b91c1c; margin-bottom:4px; display:block;">
+                  Mandatory Rejection Reason * (State clear justification for student audit record):
+                </label>
+                <textarea id="detPrinRejectionReasonInput" rows="2" class="form-control" placeholder="State reason for rejection..." style="font-size:12.5px; background:#fff; border:1.5px solid #dc2626; border-radius:6px; padding:8px 12px;"></textarea>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                  <button type="button" id="btnPrinApprove" class="btn btn-primary" onclick="App.principalActionFromModal('${r.id}', true)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#7c3aed; border-color:#7c3aed; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>✅</span> Grant Institutional Sanction
+                  </button>
+                  <button type="button" id="btnPrinDecline" class="btn btn-danger" onclick="App.principalActionFromModal('${r.id}', false)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#dc2626; border-color:#dc2626; color:#fff; border-radius:6px; cursor:pointer;">
+                    <span>❌</span> Decline Request
+                  </button>
+                </div>
+                <div style="font-size:11.5px; color:#64748b; font-style:italic;">
+                  ✍️ Authorized Principal Electronic Signature snapshot will be applied upon approval.
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm btn-primary" onclick="App.principalActionFromModal('${r.id}', true)" style="background:#7c3aed; border-color:#7c3aed; color:#fff; font-weight:600;">
+                ✅ Grant Sanction
+              </button>
+              <button type="button" class="btn btn-sm btn-danger" onclick="App.principalActionFromModal('${r.id}', false)" style="background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600;">
+                ❌ Decline
+              </button>
+            </div>
+          `;
+        }
+        return;
+      } else {
+        if (actionPanelEl) {
+          actionPanelEl.innerHTML = `
+            <div style="margin-top:16px; padding:12px 16px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; font-size:12px; color:#5b21b6;">
+              ⏳ <strong>Workflow Progress:</strong> Endorsed by HOD. Currently in queue for Principal executive sanction.
+            </div>
+          `;
+        }
+        if (actionExtraEl) {
+          actionExtraEl.innerHTML = `<span style="font-size:12px; color:#64748b;">⏳ In Queue: Awaiting Principal sanction</span>`;
+        }
+        return;
+      }
+    }
+
+    // Default fallback
+    if (actionExtraEl) {
+      actionExtraEl.innerHTML = `<span style="font-size:12px; color:#64748b;">⏳ Request is pending approval.</span>`;
+    }
+  },
+
+  async advisorActionFromModal(requestId, isApproved) {
+    if (!requestId) return;
+    const commentEl = document.getElementById("detReviewCommentInput");
+    const rejGroup = document.getElementById("detRejectionReasonGroup");
+    const rejInput = document.getElementById("detRejectionReasonInput");
+
+    if (!isApproved) {
+      if (rejGroup && rejGroup.style.display === "none") {
+        rejGroup.style.display = "block";
+        if (rejInput) rejInput.focus();
+        Toast.show("Please enter the mandatory rejection reason, then click 'Decline Request' to confirm.", "warning");
+        return;
+      }
+      const reason = rejInput ? rejInput.value.trim() : "";
+      if (!reason) {
+        if (rejInput) rejInput.focus();
+        Toast.show("Rejection reason is strictly mandatory. Please specify why the request is rejected.", "warning");
+        return;
+      }
+      const confirmed = window.confirm("Are you sure you want to decline/reject this request? The approval workflow will be terminated and the student will be notified.");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/advisor-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: false, reason: reason })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to decline request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        Toast.show("OD request rejected. Student has been notified with the audit reason.", "info");
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.AdvisorPortal && typeof AdvisorPortal.loadRequests === "function") {
+          AdvisorPortal.loadRequests();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
+      }
+    } else {
+      const comment = commentEl ? commentEl.value.trim() : "";
+      const confirmed = window.confirm("Are you sure you want to accept and endorse this request? Your authorized digital signature will be applied and the request will be forwarded to the Head of Department (Dr. K. Gopinath).");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/advisor-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: true, reason: comment || "Recommended for approval." })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to accept request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        const isBonafide = (updated.odType && updated.odType.toLowerCase().includes("bonafide")) || (updated.id && updated.id.startsWith("EPOCH-BNF"));
+        if (isBonafide) {
+          Toast.show("Bonafide Certificate approved and forwarded to Head of Department (Dr. K. Gopinath).", "success");
+        } else {
+          Toast.show("Request approved and forwarded to Head of Department (Dr. K. Gopinath) for final sanction.", "success");
+        }
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.AdvisorPortal && typeof AdvisorPortal.loadRequests === "function") {
+          AdvisorPortal.loadRequests();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
+      }
+    }
+  },
+
+  async hodActionFromModal(requestId, isApproved) {
+    if (!requestId) return;
+    const commentEl = document.getElementById("detHodReviewCommentInput");
+    const rejGroup = document.getElementById("detHodRejectionReasonGroup");
+    const rejInput = document.getElementById("detHodRejectionReasonInput");
+
+    if (!isApproved) {
+      if (rejGroup && rejGroup.style.display === "none") {
+        rejGroup.style.display = "block";
+        if (rejInput) rejInput.focus();
+        Toast.show("Please enter the mandatory rejection reason, then click 'Decline Request' to confirm.", "warning");
+        return;
+      }
+      const reason = rejInput ? rejInput.value.trim() : "";
+      if (!reason) {
+        if (rejInput) rejInput.focus();
+        Toast.show("Rejection reason is strictly mandatory. Please specify why the request is rejected.", "warning");
+        return;
+      }
+      const confirmed = window.confirm("Are you sure you want to decline/reject this request? The approval workflow will be terminated and the student will be notified.");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/hod-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: false, reason: reason })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to decline request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        Toast.show("Request rejected by HOD. Student has been notified with the audit reason.", "info");
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.HodPortal && typeof HodPortal.loadDashboardData === "function") {
+          HodPortal.loadDashboardData();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
+      }
+    } else {
+      const comment = commentEl ? commentEl.value.trim() : "";
+      const confirmed = window.confirm("Are you sure you want to approve this request? Your authorized digital signature will be applied.");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/hod-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: true, reason: comment || "Departmental sanction granted." })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to approve request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        const isBonafide = (updated.odType && updated.odType.toLowerCase().includes("bonafide")) || (updated.id && updated.id.startsWith("EPOCH-BNF"));
+        if (isBonafide) {
+          Toast.show("Bonafide Certificate approved and forwarded to Principal (Dr. B. Sanjay Gandhi).", "success");
+        } else {
+          Toast.show("Request granted final sanction! Student may now download the approved signed requisition.", "success");
+        }
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.HodPortal && typeof HodPortal.loadDashboardData === "function") {
+          HodPortal.loadDashboardData();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
+      }
+    }
+  },
+
+  async principalActionFromModal(requestId, isApproved) {
+    if (!requestId) return;
+    const commentEl = document.getElementById("detPrinReviewCommentInput");
+    const rejGroup = document.getElementById("detPrinRejectionReasonGroup");
+    const rejInput = document.getElementById("detPrinRejectionReasonInput");
+
+    if (!isApproved) {
+      if (rejGroup && rejGroup.style.display === "none") {
+        rejGroup.style.display = "block";
+        if (rejInput) rejInput.focus();
+        Toast.show("Please enter the mandatory rejection reason, then click 'Decline Request' to confirm.", "warning");
+        return;
+      }
+      const reason = rejInput ? rejInput.value.trim() : "";
+      if (!reason) {
+        if (rejInput) rejInput.focus();
+        Toast.show("Rejection reason is strictly mandatory. Please specify why the request is rejected.", "warning");
+        return;
+      }
+      const confirmed = window.confirm("Are you sure you want to decline/reject this Bonafide Certificate request? The student will be notified.");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/principal-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: false, reason: reason })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to decline request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        Toast.show("Bonafide Certificate rejected by Principal.", "info");
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.PrincipalPortal && typeof PrincipalPortal.loadDashboardData === "function") {
+          PrincipalPortal.loadDashboardData();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
+      }
+    } else {
+      const comment = commentEl ? commentEl.value.trim() : "";
+      const confirmed = window.confirm("Are you sure you want to grant final institutional sanction and issue this Bonafide Certificate? Your authorized digital signature will be applied.");
+      if (!confirmed) return;
+
+      try {
+        const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/principal-action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approved: true, reason: comment || "Institutional sanction granted. Certificate issued." })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to approve request (HTTP ${res.status})`);
+        }
+        const updated = await res.json();
+        Toast.show("Bonafide Certificate officially sanctioned and issued! Student may now download the certificate.", "success");
+        this.renderRequestDetailsModal(updated);
+        this.refreshNotifications();
+        if (window.PrincipalPortal && typeof PrincipalPortal.loadDashboardData === "function") {
+          PrincipalPortal.loadDashboardData();
+        }
+        if (window.StudentPortal && typeof StudentPortal.renderTrackingPage === "function") {
+          StudentPortal.renderTrackingPage();
+        }
+        if (document.getElementById("historyContainer") && document.getElementById("historyContainer").style.display !== "none") {
+          this.loadOfficialHistory();
+        }
+        if (document.getElementById("notificationsContainer") && document.getElementById("notificationsContainer").style.display !== "none") {
+          this.loadNotifications();
+        }
+      } catch (err) {
+        Toast.show("Error: " + err.message, "danger");
       }
     }
   },
@@ -1637,32 +2374,95 @@ const App = {
           return;
         }
 
-        list.innerHTML = notifs.map(n => {
+        const unreadCount = notifs.filter(x => !x.read).length;
+
+        const headerHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+            <div style="font-size:12.5px; color:#475569;">
+              <strong>Institutional Notifications:</strong> ${notifs.length} Total ${unreadCount > 0 ? `• <span style="color:#0284c7; font-weight:700;">${unreadCount} Unread</span>` : '• All read'}
+            </div>
+            ${unreadCount > 0 ? `
+              <button class="btn btn-sm btn-secondary" onclick="App.markAllNotificationsRead()" style="padding:4px 10px; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
+                ✓ Mark All Read
+              </button>
+            ` : ''}
+          </div>
+        `;
+
+        const cardsHtml = notifs.map(n => {
           const isRejection = n.type && n.type.includes("REJECT");
-          const dateStr = n.createdAt ? new Date(n.createdAt).toLocaleString() : "";
+          
+          // Safe date formatting without crashing on pre-formatted strings
+          let dateStr = n.createdAt || "";
+          if (dateStr && !isNaN(Date.parse(dateStr)) && !dateStr.includes(",")) {
+            try {
+              dateStr = new Date(dateStr).toLocaleString();
+            } catch (e) {}
+          }
+
           const readBtn = !n.read
             ? `<button class="btn btn-sm btn-secondary" onclick="App.markNotifRead('${n.id}')" style="padding:4px 9px; font-size:11px;">Mark Read</button>`
             : '<span style="font-size:11px; color:#94a3b8;">✓ Read</span>';
 
-          const reqId = n.referenceId || n.refId || (n.message && n.message.match(/EPOCH-(?:OD|LV|BNF)-[A-Za-z0-9-]+/) ? n.message.match(/EPOCH-(?:OD|LV|BNF)-[A-Za-z0-9-]+/)[0] : null);
+          // Determine reference ID
+          let refId = n.referenceId || n.refId || null;
+          if (!refId && n.message) {
+            const m = n.message.match(/EPOCH-(?:OD|LV|BNF|CMP)-[A-Za-z0-9-]+/) || n.message.match(/RCPT-[A-Za-z0-9-]+/);
+            if (m) refId = m[0];
+          }
 
-          let viewReqBtn = '';
-          if (reqId) {
-            viewReqBtn = `
-              <button class="btn btn-sm btn-primary" onclick="App.viewRequestDetails('${reqId}')" title="View Request Details & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
-                🔍 View Request
+          // Category classification
+          const category = n.category || (
+            (n.type && n.type.includes("COMPLAINT")) || (refId && refId.includes("-CMP-")) ? "Student Complaint" :
+            (n.type && (n.type.includes("APPROVED") || n.type.includes("REJECTED"))) ? "Official Decision" :
+            (n.type && (n.type.includes("REQUEST") || n.type.includes("OD_") || n.type.includes("LEAVE") || n.type.includes("BONAFIDE"))) ? "Academic Request" :
+            (n.type && (n.type.includes("FEE") || n.type.includes("PAYMENT") || n.type.includes("RECEIPT"))) ? "Fee Operations" :
+            (n.type && (n.type.includes("ANNOUNCEMENT") || n.type.includes("NOTICE"))) ? "Institutional Notice" :
+            (n.type && (n.type.includes("CHAT") || n.type.includes("MESSAGE"))) ? "Direct Message" : "Institutional Update"
+          );
+
+          // Working View Details action button
+          let viewActionBtn = '';
+          const isComplaint = (n.type && n.type.includes("COMPLAINT")) || (refId && (refId.startsWith("EPOCH-CMP-") || refId.startsWith("CMP-")));
+          const isReceipt = (refId && refId.startsWith("RCPT-")) || (n.type && (n.type === "FEE_RECEIPT" || n.type.includes("RECEIPT")));
+          const isFee = !isReceipt && ((refId && (refId.startsWith("FEE-") || refId.startsWith("PAY-"))) || (n.type && (n.type.includes("FEE") || n.type.includes("PAYMENT"))));
+          const isNotice = n.type === "CLASS_ANNOUNCEMENT" || n.type === "ANNOUNCEMENT" || (n.type && n.type.includes("NOTICE")) || (refId && refId.startsWith("ANN-"));
+          const isChat = (n.type && (n.type.includes("CHAT") || n.type.includes("MESSAGE"))) || (refId && (refId.startsWith("CONV-") || refId.startsWith("REQ-")));
+
+          if (isComplaint && refId) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-primary" onclick="App.viewComplaintDetails('${refId}', '${n.id}')" title="View Confidential Grievance Details" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px; background:#b91c1c; border-color:#b91c1c; color:#fff;">
+                🚨 View Complaint
               </button>
             `;
-          } else if (n.referenceId && (n.referenceId.startsWith("RCPT-") || n.type === "ADVISOR_RECEIPT_DELIVERY" || n.type === "PAYMENT_CONFIRMED")) {
-            viewReqBtn = `
-              <button class="btn btn-sm btn-secondary" onclick="FeeApp.downloadReceiptPdf('${n.referenceId}')" title="Download Verified Official Receipt" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
+          } else if (isReceipt && refId) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-secondary" onclick="App.downloadFeeReceipt('${refId}', '${n.id}')" title="Download Verified Official Receipt" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
                 📄 View Receipt
               </button>
             `;
-          } else if (n.type === "CLASS_ANNOUNCEMENT" || n.type === "ANNOUNCEMENT") {
-            viewReqBtn = `
-              <button class="btn btn-sm btn-primary" onclick="App.switchTab('announcements')" title="View Announcement on Board" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
+          } else if (isFee) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-secondary" onclick="App.switchTab('fees'); App.markNotifRead('${n.id}');" title="Review Institutional Fee Account" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
+                💳 View Fees
+              </button>
+            `;
+          } else if (isNotice) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-primary" onclick="App.switchTab('announcements'); App.markNotifRead('${n.id}');" title="View Announcement on Board" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
                 📢 View Notice
+              </button>
+            `;
+          } else if (isChat) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-primary" onclick="App.switchTab('chat'); App.markNotifRead('${n.id}');" title="Open Chat Conversation" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
+                💬 Open Chat
+              </button>
+            `;
+          } else if (refId) {
+            viewActionBtn = `
+              <button class="btn btn-sm btn-primary" onclick="App.viewRequestDetails('${refId}', '${n.id}')" title="View Request Details & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; font-size:11px;">
+                🔍 View Request
               </button>
             `;
           }
@@ -1673,31 +2473,50 @@ const App = {
               <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:10px 14px; margin-top:8px; font-size:12px; color:#991b1b;">
                 <div><strong>Rejection Reason:</strong> ${this.escape(n.rejectionReason)}</div>
                 ${n.staffRole ? '<div><strong>Staff Authority:</strong> ' + this.escape(n.staffRole) + '</div>' : ''}
-                ${reqId ? '<div><strong>Application Ref:</strong> ' + this.escape(reqId) + '</div>' : ''}
+                ${refId ? '<div><strong>Application Ref:</strong> ' + this.escape(refId) + '</div>' : ''}
               </div>
             `;
           }
 
+          const senderBadge = (n.senderName || n.senderRole) ? `
+            <div style="font-size:11.5px; color:#475569; margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span>👤</span> <strong>${this.escape(n.senderName || 'Authorized Staff')}</strong>
+              ${n.senderRole ? `<span class="badge-tag badge-secondary" style="font-size:10px; padding:1px 6px;">${this.escape(n.senderRole)}</span>` : ''}
+            </div>
+          ` : '';
+
+          const catBadgeClass =
+            category === 'Student Complaint' ? 'badge-danger' :
+            category === 'Official Decision' ? (isRejection ? 'badge-rejected' : 'badge-teal') :
+            category === 'Academic Request' ? 'badge-primary' :
+            category === 'Fee Operations' ? 'badge-info' :
+            category === 'Institutional Notice' ? 'badge-warning' : 'badge-secondary';
+
           return `
-            <div class="card" style="margin-bottom:12px; border-left:4px solid ${isRejection ? 'var(--danger)' : 'var(--accent-teal)'};">
+            <div class="card" style="margin-bottom:12px; border-left:4px solid ${isRejection ? 'var(--danger)' : (!n.read ? 'var(--accent-teal)' : '#cbd5e1')}; background:${!n.read ? '#ffffff' : '#fcfcfd'};">
               <div class="card-body" style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
                 <div style="flex:1; min-width:260px;">
                   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <span class="badge-tag ${isRejection ? 'badge-rejected' : 'badge-teal'}">${this.escape(n.type || 'NOTIFICATION')}</span>
-                    ${reqId ? `<span class="ref-badge" style="font-size:11px;">${this.escape(reqId)}</span>` : ''}
-                    <span style="font-size:11px; color:#64748b;">${dateStr}</span>
+                    <span class="badge-tag ${catBadgeClass}" style="font-weight:700;">${this.escape(category)}</span>
+                    ${refId ? `<span class="ref-badge" style="font-size:11px; font-family:monospace; font-weight:600; background:#e2e8f0; color:#1e293b; padding:2px 6px; border-radius:4px;">${this.escape(refId)}</span>` : ''}
+                    ${!n.read ? '<span class="badge-tag badge-teal" style="font-size:10px; padding:1px 6px;">● UNREAD</span>' : ''}
+                    <span style="font-size:11px; color:#64748b; margin-left:auto;">🕒 ${this.escape(dateStr)}</span>
                   </div>
-                  <div style="font-size:14px; color:#1e293b; margin-top:8px; font-weight:500;">${this.escape(n.message)}</div>
+                  <div style="font-size:14px; font-weight:700; color:#0f172a; margin-top:6px;">${this.escape(n.title || category)}</div>
+                  <div style="font-size:13px; color:#334155; margin-top:2px; font-weight:400; line-height:1.45;">${this.escape(n.message)}</div>
+                  ${senderBadge}
                   ${rejectionDetails}
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                  ${viewReqBtn}
+                  ${viewActionBtn}
                   ${readBtn}
                 </div>
               </div>
             </div>
           `;
         }).join("");
+
+        list.innerHTML = headerHtml + cardsHtml;
       }
     } catch (e) {
       list.innerHTML = '<div class="alert alert-danger">Failed to load notifications.</div>';
@@ -1940,6 +2759,9 @@ window.RealtimeSync = {
 
 window.App = App;
 window.ProfileManager = ProfileManager;
+window.FeeApp = {
+  downloadReceiptPdf: (id) => App.downloadFeeReceipt(id)
+};
 
 // Bootstrap application on DOM ready
 document.addEventListener("DOMContentLoaded", () => {

@@ -38,10 +38,17 @@ public class UserService {
 
     public UserProfile findStudent(String regNoOrEmail) throws ExecutionException, InterruptedException {
         String query = regNoOrEmail.trim();
+        UserProfile student = InstitutionalRoster.findStudent(query);
+        if (student != null) {
+            String photo = getCachedPhoto(student.getIdentifier());
+            if (photo != null) student.setProfilePhoto(photo);
+            return student;
+        }
+
         try {
-            DocumentSnapshot doc = db.collection("students").document(query).get().get();
+            DocumentSnapshot doc = db.collection("students").document(query).get().get(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (!doc.exists()) {
-                var snap = db.collection("students").whereEqualTo("email", query.toLowerCase()).limit(1).get().get();
+                var snap = db.collection("students").whereEqualTo("email", query.toLowerCase()).limit(1).get().get(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
                 if (!snap.isEmpty()) {
                     doc = snap.getDocuments().get(0);
                 }
@@ -78,12 +85,6 @@ public class UserService {
         } catch (Exception ex) {
             // Firestore quota limit or offline; use authoritative institutional roster
         }
-        UserProfile student = InstitutionalRoster.findStudent(query);
-        if (student != null) {
-            String photo = getCachedPhoto(student.getIdentifier());
-            if (photo != null) student.setProfilePhoto(photo);
-            return student;
-        }
         return null;
     }
 
@@ -102,10 +103,18 @@ public class UserService {
         } else if ("admin".equals(clean) || "admin@gct.ac.in".equals(clean) || "admin.demo@epoch.edu".equals(clean)) {
             clean = "admin";
         }
+
+        UserProfile authStaff = getAuthoritativeStaffProfile(clean);
+        if (authStaff != null) {
+            String photo = getCachedPhoto(clean);
+            if (photo != null) authStaff.setProfilePhoto(photo);
+            return authStaff;
+        }
+
         try {
-            DocumentSnapshot doc = db.collection("staff").document(clean).get().get();
+            DocumentSnapshot doc = db.collection("staff").document(clean).get().get(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (!doc.exists()) {
-                var snap = db.collection("staff").whereEqualTo("email", clean).limit(1).get().get();
+                var snap = db.collection("staff").whereEqualTo("email", clean).limit(1).get().get(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
                 if (!snap.isEmpty()) {
                     doc = snap.getDocuments().get(0);
                 }
@@ -134,40 +143,15 @@ public class UserService {
 
                 return p;
             }
-
-            // Dedicated check for Admin profile fallback in Firestore
-            if ("admin".equals(clean)) {
-                DocumentSnapshot adminDoc = db.collection("admins").document("admin").get().get();
-                if (adminDoc.exists()) {
-                    UserProfile p = new UserProfile();
-                    p.setId("admin");
-                    p.setIdentifier("admin");
-                    p.setName(adminDoc.getString("name") != null ? adminDoc.getString("name") : "Dr. S. K. Ramesh");
-                    p.setEmail(adminDoc.getString("email") != null ? adminDoc.getString("email") : "admin@gct.ac.in");
-                    p.setSection("ALL");
-                    p.setDepartment("College Administration & Accounts");
-                    p.setRole(UserRole.ADMIN);
-                    p.setAcademicYear("Staff / Faculty");
-                    p.setBio("College Administrator & Accounts Officer at Gnanamani College of Technology.");
-
-                    String photo = adminDoc.getString("profilePhoto");
-                    if (photo == null || photo.isEmpty()) photo = adminDoc.getString("photoUrl");
-                    if (photo == null || photo.isEmpty()) photo = adminDoc.getString("avatarUrl");
-                    if (photo == null || photo.isEmpty()) photo = getCachedPhoto("admin");
-                    if (photo != null && !photo.isEmpty()) {
-                        p.setProfilePhoto(photo);
-                        setCachedPhoto("admin", photo);
-                    }
-
-                    return p;
-                }
-            }
         } catch (Exception ex) {
-            // Firestore quota limit or offline; use authoritative staff records below
+            // Firestore quota limit or offline; use authoritative staff records
         }
 
+        return getAuthoritativeStaffProfile(clean);
+    }
+
+    private UserProfile getAuthoritativeStaffProfile(String clean) {
         UserProfile p = null;
-        // Authoritative Institutional Staff Profiles Fallback
         if ("admin".equals(clean)) {
             p = new UserProfile();
             p.setId("admin");
@@ -235,13 +219,11 @@ public class UserService {
             p.setAcademicYear("Staff / Faculty");
             p.setBio("Principal — Gnanamani College of Technology.");
         }
-
         if (p != null) {
             String photo = getCachedPhoto(clean);
             if (photo != null) p.setProfilePhoto(photo);
             return p;
         }
-
         return null;
     }
 

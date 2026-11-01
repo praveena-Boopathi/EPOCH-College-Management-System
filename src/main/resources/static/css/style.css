@@ -1012,6 +1012,29 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-md);
 }
 
+.metric-card.clickable-card {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.metric-card.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.12), 0 4px 6px -4px rgba(15, 23, 42, 0.06);
+  border-color: #0d9488;
+}
+
+.metric-card.clickable-card.active-card {
+  border-color: #0d9488 !important;
+  background: #f0fdfa !important;
+  box-shadow: 0 0 0 2px #0d9488, 0 10px 25px -5px rgba(13, 148, 136, 0.25) !important;
+}
+
+.metric-card.clickable-card:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
+}
+
 .metric-label {
   font-size: 12px;
   font-weight: 600;
@@ -4310,14 +4333,20 @@ body.chat-active .assistant-drawer {
   }
 
   body.print-active-od #printablePreviewArea {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    height: 275mm !important;
+    min-height: 275mm !important;
+    max-height: 275mm !important;
+    padding: 12mm 14mm !important;
+    margin: 11mm auto !important;
     border: 1.5px solid #0f172a !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 10mm 14mm !important;
-    margin: 0 auto !important;
-    max-width: 190mm !important;
-    box-sizing: border-box !important;
     background: #ffffff !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -4325,22 +4354,69 @@ body.chat-active .assistant-drawer {
 
   body.print-active-od #printablePreviewArea .printable-document-header {
     padding-bottom: 8px !important;
-    margin-bottom: 12px !important;
+    margin-bottom: 8px !important;
+    border-bottom: 2px solid #0f172a !important;
+    text-align: center !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-document-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px !important;
+    color: #0b132b !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-document-sub {
+    font-size: 11px !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-doc-type {
+    display: inline-block !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    padding: 6px 18px !important;
+    margin-top: 6px !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    letter-spacing: 0.5px !important;
   }
 
   body.print-active-od #printablePreviewArea .printable-table {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
     margin: 10px 0 !important;
+    font-size: 12px !important;
   }
 
   body.print-active-od #printablePreviewArea .printable-table th,
   body.print-active-od #printablePreviewArea .printable-table td {
-    padding: 6px 10px !important;
-    font-size: 11px !important;
+    padding: 9px 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    text-align: left !important;
+    line-height: 1.45 !important;
+  }
+
+  body.print-active-od #printablePreviewArea .printable-table th {
+    background: #f8fafc !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
+    width: 25% !important;
   }
 
   body.print-active-od #printablePreviewArea #prevVerificationBlocks {
     margin-top: 14px !important;
-    padding-top: 10px !important;
+    padding-top: 12px !important;
+    border-top: 1px dashed #cbd5e1 !important;
+    display: grid !important;
+    gap: 16px !important;
+    text-align: center !important;
+  }
+
+  body.print-active-od #printablePreviewArea #prevVerificationBlocks > div {
+    min-height: 60px !important;
   }
 
   /* When printing QR Certificate modal */
@@ -4388,14 +4464,20 @@ body.chat-active .assistant-drawer {
   }
 
   body.print-active-qr .qr-doc-box {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    height: 275mm !important;
+    min-height: 275mm !important;
+    max-height: 275mm !important;
+    padding: 12mm 14mm !important;
+    margin: 11mm auto !important;
     border: 1.5px solid #0f172a !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 12mm 16mm !important;
-    margin: 0 auto !important;
-    max-width: 190mm !important;
-    box-sizing: border-box !important;
     background: #ffffff !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;

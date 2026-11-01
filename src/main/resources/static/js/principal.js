@@ -143,9 +143,28 @@ const PrincipalPortal = {
     }).join("");
   },
 
-  openComplaintModal(id) {
-    const c = this.complaints.find(x => x.id === id);
-    if (!c) return;
+  async openComplaintModal(id) {
+    if (!id) return;
+    let c = (this.complaints || []).find(x => x.id === id);
+    if (!c) {
+      try {
+        const res = await Auth.fetchWithAuth(`/api/complaints/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          c = await res.json();
+          if (!this.complaints) this.complaints = [];
+          this.complaints.push(c);
+        }
+      } catch (e) {
+        console.warn("Could not fetch complaint:", e);
+      }
+    }
+    if (!c && window.DemoStore) {
+      c = DemoStore.getComplaints().find(x => x.id === id);
+    }
+    if (!c) {
+      Toast.show("Complaint record not found in institutional archives.", "warning");
+      return;
+    }
     this.activeComplaintId = id;
 
     const dept = c.department || c.section || "CSE";
@@ -246,17 +265,15 @@ const PrincipalPortal = {
         const list = await res.json();
         // Strictly filter to Bonafide requests requiring Principal approval
         this.odRequests = list.filter(r => r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF")));
-        if (this.odRequests.length === 0 && window.DemoStore) {
-          this.odRequests = DemoStore.getOdRequests().filter(r => (r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"))) && (r.status === "PENDING_PRINCIPAL" || r.principalDecision));
-        }
         this.renderOdRequests();
+        return;
       }
     } catch (e) {
       console.warn("Using local demo Principal OD requests:", e);
-      if (window.DemoStore) {
-        this.odRequests = DemoStore.getOdRequests().filter(r => (r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"))) && (r.status === "PENDING_PRINCIPAL" || r.principalDecision));
-        this.renderOdRequests();
-      }
+    }
+    if (window.DemoStore && !Auth.getToken()) {
+      this.odRequests = DemoStore.getOdRequests().filter(r => (r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"))) && (r.status === "PENDING_PRINCIPAL" || r.principalDecision));
+      this.renderOdRequests();
     }
   },
 
@@ -417,9 +434,8 @@ const PrincipalPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.principalReviewOd(this.activeOdId, true, "Institutional sanction granted.");
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record Principal approval");
       }
 
       this.closeOdModal();
@@ -427,14 +443,7 @@ const PrincipalPortal = {
       App.refreshNotifications();
       Toast.show("Principal executive approval granted! Official Bonafide Certificate issued with institutional signatures.", "success");
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.principalReviewOd(this.activeOdId, true, "Institutional sanction granted.");
-        this.closeOdModal();
-        await this.loadOdRequests();
-        Toast.show("Principal sanction recorded in demo ledger! Official certificate issued.", "success");
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 
@@ -459,9 +468,8 @@ const PrincipalPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.principalReviewOd(this.activeOdId, false, reason);
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record Principal rejection");
       }
 
       this.closeOdModal();
@@ -469,14 +477,7 @@ const PrincipalPortal = {
       App.refreshNotifications();
       Toast.show("OD request rejected by Principal.", "info");
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.principalReviewOd(this.activeOdId, false, reason);
-        this.closeOdModal();
-        await this.loadOdRequests();
-        Toast.show("OD request rejected with reason in demo ledger.", "info");
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 

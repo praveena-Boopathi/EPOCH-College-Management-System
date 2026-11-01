@@ -78,51 +78,107 @@ public class ComplaintService {
             System.err.println("Firestore write failed for complaint (persisted in-memory): " + ex.getMessage());
         }
 
-        // Notify Principal
+        // Notify Principal directly
         notificationService.createNotification(
                 "bsanjaygandhi",
                 "New Student Complaint Received",
-                "A new complaint (" + id + ") has been submitted directly to the Principal by " + student.getName() + " (" + student.getSection() + ", " + dept + ", " + yr + ", " + sType + "). Subject: " + payload.getSubject(),
+                "A confidential student complaint (" + id + ") has been submitted directly to the Principal by " + student.getName() + " (" + student.getSection() + ", " + dept + ", " + yr + ", " + sType + "). Subject: " + payload.getSubject(),
                 "COMPLAINT_NEW",
                 id,
                 null,
-                null
+                null,
+                "Student Complaint",
+                student.getName(),
+                "Student (" + student.getSection() + ")"
         );
 
         // Notify Student
         notificationService.createNotification(
                 student.getIdentifier(),
                 "Complaint Registered",
-                "Your complaint (" + id + ") has been submitted directly to Principal Dr. B. Sanjay Gandhi.",
+                "Your confidential complaint (" + id + ") has been submitted directly to Principal Dr. B. Sanjay Gandhi.",
                 "COMPLAINT_SUBMITTED",
                 id,
                 null,
-                null
+                null,
+                "Student Complaint",
+                "EPOCH Grievance Cell",
+                "Administration"
         );
 
         return cmp;
     }
 
+    public synchronized void seedDefaultComplaintsIfEmpty() {
+        if (!memoryComplaints.isEmpty()) return;
+
+        // 1. EPOCH-CMP-2026-01 (ABINAYA G, CSE-A)
+        StudentComplaint c1 = new StudentComplaint();
+        c1.setId("EPOCH-CMP-2026-01");
+        c1.setRegNo("620823104002");
+        c1.setStudentName("ABINAYA G");
+        c1.setSection("CSE-A");
+        c1.setDepartment("CSE");
+        c1.setYear("IV Year");
+        c1.setStudentType("Day Scholar");
+        c1.setSubject("GPU Cluster Access for Final Year Deep Learning Project");
+        c1.setCategory("Laboratory & Infrastructure");
+        c1.setDescription("High performance computing GPU cluster node access is required for model fine-tuning in the departmental AI laboratory.");
+        c1.setSupportingInfo("Project guide recommendation letter endorsed.");
+        c1.setStatus(ComplaintStatus.RECEIVED);
+        c1.setSubmittedAt("27 Mar 2026, 02:45 pm");
+        memoryComplaints.put(c1.getId(), c1);
+        try { db.collection("complaints").document(c1.getId()).set(c1); } catch (Exception ignored) {}
+
+        // 2. EPOCH-CMP-2026-02 (PRAVEENA B, CSE-C)
+        StudentComplaint c2 = new StudentComplaint();
+        c2.setId("EPOCH-CMP-2026-02");
+        c2.setRegNo("620823104034");
+        c2.setStudentName("PRAVEENA B");
+        c2.setSection("CSE-C");
+        c2.setDepartment("CSE");
+        c2.setYear("IV Year");
+        c2.setStudentType("Hosteller");
+        c2.setSubject("Library Digital Journal Access Permissions");
+        c2.setCategory("Academic Resources");
+        c2.setDescription("Digital library proxy credentials require institutional renewal for accessing IEEE and ACM digital libraries.");
+        c2.setSupportingInfo("Student library card verified.");
+        c2.setStatus(ComplaintStatus.UNDER_REVIEW);
+        c2.setSubmittedAt("28 Mar 2026, 11:20 am");
+        memoryComplaints.put(c2.getId(), c2);
+        try { db.collection("complaints").document(c2.getId()).set(c2); } catch (Exception ignored) {}
+    }
+
     public StudentComplaint getComplaintById(String id) {
-        if (memoryComplaints.containsKey(id)) {
-            return memoryComplaints.get(id);
+        if (id == null || id.trim().isEmpty()) return null;
+        String cleanId = id.trim();
+        seedDefaultComplaintsIfEmpty();
+
+        if (memoryComplaints.containsKey(cleanId)) {
+            return memoryComplaints.get(cleanId);
+        }
+        for (StudentComplaint c : memoryComplaints.values()) {
+            if (c.getId() != null && c.getId().equalsIgnoreCase(cleanId)) {
+                return c;
+            }
         }
         try {
-            DocumentSnapshot doc = db.collection("complaints").document(id).get().get();
+            DocumentSnapshot doc = db.collection("complaints").document(cleanId).get().get(1200, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (doc.exists()) {
                 StudentComplaint c = doc.toObject(StudentComplaint.class);
                 if (c != null) {
-                    memoryComplaints.put(id, c);
+                    memoryComplaints.put(cleanId, c);
                     return c;
                 }
             }
         } catch (Exception ex) {
-            System.err.println("Firestore read failed for complaint " + id + ": " + ex.getMessage());
+            System.err.println("Firestore read failed for complaint " + cleanId + ": " + ex.getMessage());
         }
-        return memoryComplaints.get(id);
+        return memoryComplaints.get(cleanId);
     }
 
     public List<StudentComplaint> getStudentComplaints(String regNo) {
+        seedDefaultComplaintsIfEmpty();
         java.util.Map<String, StudentComplaint> map = new java.util.LinkedHashMap<>();
         for (StudentComplaint c : memoryComplaints.values()) {
             if (regNo != null && regNo.equalsIgnoreCase(c.getRegNo())) {
@@ -131,7 +187,7 @@ public class ComplaintService {
         }
 
         try {
-            var snap = db.collection("complaints").whereEqualTo("regNo", regNo).get().get();
+            var snap = db.collection("complaints").whereEqualTo("regNo", regNo).get().get(1200, java.util.concurrent.TimeUnit.MILLISECONDS);
             for (DocumentSnapshot doc : snap.getDocuments()) {
                 StudentComplaint c = doc.toObject(StudentComplaint.class);
                 if (c != null) {
@@ -149,10 +205,11 @@ public class ComplaintService {
     }
 
     public List<StudentComplaint> getAllComplaintsForPrincipal() {
+        seedDefaultComplaintsIfEmpty();
         java.util.Map<String, StudentComplaint> map = new java.util.LinkedHashMap<>(memoryComplaints);
 
         try {
-            var snap = db.collection("complaints").get().get();
+            var snap = db.collection("complaints").get().get(1200, java.util.concurrent.TimeUnit.MILLISECONDS);
             for (DocumentSnapshot doc : snap.getDocuments()) {
                 StudentComplaint c = doc.toObject(StudentComplaint.class);
                 if (c != null) {
@@ -201,6 +258,9 @@ public class ComplaintService {
                 "COMPLAINT_UPDATE_" + newStatus,
                 cmp.getId(),
                 null,
+                "Principal",
+                "Student Complaint",
+                "Dr. B. Sanjay Gandhi",
                 "Principal"
         );
 

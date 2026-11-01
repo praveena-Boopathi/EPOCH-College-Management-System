@@ -510,27 +510,72 @@
 
           <!-- Student Metrics -->
           <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-label">⏳ Pending Approvals</div>
+            <div id="stCardPending" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting approval">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending Approvals</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="stMetricPending" class="metric-value">0</div>
               <div class="metric-subtext">Currently in review chain</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">✅ Approved ODs</div>
+            <div id="stCardApproved" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all approved On-Duty applications">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved ODs</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="stMetricApproved" class="metric-value" style="color:var(--success);">0</div>
               <div class="metric-subtext">Verified certificate generated</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">❌ Rejected ODs</div>
+            <div id="stCardRejected" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all rejected requests with reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected ODs</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="stMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
               <div class="metric-subtext">Halted with audit log</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">🚨 Direct Complaints</div>
+            <div id="stCardComplaints" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('COMPLAINTS')" role="button" tabindex="0" title="Click to view your direct complaints to Principal">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">🚨 Direct Complaints</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="stMetricComplaints" class="metric-value">0</div>
               <div class="metric-subtext">Direct to Principal Dr. Sanjay Gandhi</div>
             </div>
           </div>
+
+          <!-- Interactive Metric Details Section (Shown when clicking any Summary Card) -->
+          <div id="studentMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="studentMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="studentMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending Approvals</h3>
+                    <span id="studentMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="studentMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Requests currently undergoing multi-stage review.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="studentMetricDetailsThead"></thead>
+                  <tbody id="studentMetricDetailsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="studentDashboardMainContent">
 
           <!-- Official Announcements for Student Dashboard -->
           <div class="card" style="margin-bottom:20px; border-left:4px solid #0d9488;">
@@ -646,6 +691,7 @@
               </table>
             </div>
           </div>
+          </div><!-- End studentDashboardMainContent -->
         </section>
 
         <!-- ==================== 2. ADVISOR VIEW ==================== -->
@@ -1851,6 +1897,9 @@
         <div id="detDigitalSignatures" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
           <!-- Dynamically populated signature cards -->
         </div>
+
+        <!-- Authorized Review & Decision Action Panel -->
+        <div id="detActionPanel"></div>
       </div>
       <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div id="detActionExtra"></div>
@@ -2408,9 +2457,6 @@
             </div>
             <div class="qr-cert-details">
               <strong style="color:var(--accent-teal);">Verification Code:</strong> <code id="qrCertCode" style="font-weight:700;"></code><br>
-              <span style="font-size:11px; color:#64748b;">
-                Scan with any institutional scanner to verify authenticity against the institutional ledger.
-              </span><br>
               <span class="badge-tag badge-approved" style="margin-top:6px;">Digitally Signed & Validated</span>
             </div>
           </div>

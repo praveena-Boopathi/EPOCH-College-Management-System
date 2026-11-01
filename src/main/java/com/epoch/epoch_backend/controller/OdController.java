@@ -139,8 +139,14 @@ public class OdController {
             if (user.getRole() == UserRole.STUDENT && !req.getRegNo().equals(user.getIdentifier())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied: You are not authorized to view other students' requests."));
             }
-            if (user.getRole() == UserRole.ADVISOR && user.getSection() != null && req.getSection() != null && !user.getSection().equalsIgnoreCase(req.getSection())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied: Request belongs to another class section."));
+            if (user.getRole() == UserRole.ADVISOR) {
+                String advSec = user.getSection();
+                if (advSec == null || advSec.trim().isEmpty()) {
+                    advSec = OdService.getSectionForAdvisor(user.getIdentifier());
+                }
+                if (advSec != null && req.getSection() != null && !OdService.isSameSection(advSec, req.getSection())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied: Request belongs to another class section."));
+                }
             }
             return ResponseEntity.ok(req);
         } catch (Exception ex) {
@@ -166,6 +172,8 @@ public class OdController {
             String reason = (String) body.get("reason");
             OdRequest updated = odService.advisorAction(id, user.getIdentifier(), user.getName(), sec, approved, reason);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException sex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
         }
@@ -182,6 +190,8 @@ public class OdController {
             String reason = (String) body.get("reason");
             OdRequest updated = odService.hodAction(id, user.getIdentifier(), user.getName(), approved, reason);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException sex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
         }
@@ -198,6 +208,8 @@ public class OdController {
             String reason = (String) body.get("reason");
             OdRequest updated = odService.principalAction(id, user.getIdentifier(), user.getName(), approved, reason);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException sex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
         }
@@ -214,8 +226,14 @@ public class OdController {
             if (user.getRole() == UserRole.STUDENT && !req.getRegNo().equals(user.getIdentifier())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
             }
-            if (user.getRole() == UserRole.ADVISOR && user.getSection() != null && req.getSection() != null && !user.getSection().equalsIgnoreCase(req.getSection())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+            if (user.getRole() == UserRole.ADVISOR) {
+                String advSec = user.getSection();
+                if (advSec == null || advSec.trim().isEmpty()) {
+                    advSec = OdService.getSectionForAdvisor(user.getIdentifier());
+                }
+                if (advSec != null && req.getSection() != null && !OdService.isSameSection(advSec, req.getSection())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+                }
             }
 
             byte[] pdfBytes = pdfService.generateApprovedPdf(req);

@@ -55,3 +55,11 @@ desktop.ini
 
 # Explicitly preserve Gradle wrapper jar
 !gradle/wrapper/gradle-wrapper.jar
+
+# Scratch and local test scripts
+scratch/sample_pdfs/
+scratch/*.py
+scratch/*.js
+!scratch/inspect_all_conversations.js
+!scratch/verify_complete_message_request_workflow.js
+

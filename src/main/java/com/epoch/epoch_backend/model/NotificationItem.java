@@ -11,6 +11,9 @@ public class NotificationItem {
     private String createdAt;
     private String rejectionReason;
     private String staffRole;
+    private String category;
+    private String senderName;
+    private String senderRole;
 
     public NotificationItem() {}
 
@@ -43,4 +46,13 @@ public class NotificationItem {
 
     public String getStaffRole() { return staffRole; }
     public void setStaffRole(String staffRole) { this.staffRole = staffRole; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getSenderName() { return senderName; }
+    public void setSenderName(String senderName) { this.senderName = senderName; }
+
+    public String getSenderRole() { return senderRole; }
+    public void setSenderRole(String senderRole) { this.senderRole = senderRole; }
 }

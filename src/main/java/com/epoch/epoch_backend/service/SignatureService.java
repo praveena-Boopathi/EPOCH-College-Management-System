@@ -121,8 +121,11 @@ public class SignatureService {
 
     public StaffSignature getSignature(String username) {
         String canonical = canonicalUsername(username);
+        if (signatureCache.containsKey(canonical)) {
+            return signatureCache.get(canonical);
+        }
         try {
-            DocumentSnapshot doc = db.collection("signatures").document(canonical).get().get();
+            DocumentSnapshot doc = db.collection("signatures").document(canonical).get().get(800, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (doc.exists()) {
                 StaffSignature sig = doc.toObject(StaffSignature.class);
                 if (sig != null && sig.getSignatureBase64() != null && !sig.getSignatureBase64().isEmpty()) {
@@ -132,10 +135,6 @@ public class SignatureService {
             }
         } catch (Exception ex) {
             System.err.println("Firestore read failed for signature (serving cache): " + ex.getMessage());
-        }
-
-        if (signatureCache.containsKey(canonical)) {
-            return signatureCache.get(canonical);
         }
 
         // Generate and cache default signature for this canonical user

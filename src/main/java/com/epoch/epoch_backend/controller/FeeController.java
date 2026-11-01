@@ -12,9 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-// Fees & Payments module has been removed from EPOCH.
-// @RestController
-// @RequestMapping("/api/fees")
+@RestController
+@RequestMapping({"/api/fee", "/api/fees"})
 public class FeeController {
 
     private final FeeService feeService;

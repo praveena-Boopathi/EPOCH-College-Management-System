@@ -294,6 +294,10 @@ const HodPortal = {
   },
 
   openReviewModal(id) {
+    if (window.App && typeof App.viewRequestDetails === "function") {
+      App.viewRequestDetails(id);
+      return;
+    }
     const r = this.requests.find(x => x.id === id);
     if (!r) return;
     this.activeRequestId = id;
@@ -514,9 +518,8 @@ const HodPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.hodReviewOd(this.activeRequestId, true, "HOD endorsement granted.");
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record HOD approval");
       }
 
       this.closeReviewModal();
@@ -529,18 +532,7 @@ const HodPortal = {
         Toast.show("Request officially approved and finalized by HOD! Form & Certificate enabled.", "success");
       }
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.hodReviewOd(this.activeRequestId, true, "HOD endorsement granted.");
-        this.closeReviewModal();
-        await this.loadRequests();
-        if (isBonafide) {
-          Toast.show("Bonafide Certificate forwarded to Principal in demo ledger!", "success");
-        } else {
-          Toast.show("Request officially approved by HOD in demo ledger! PDF download enabled.", "success");
-        }
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 
@@ -570,9 +562,8 @@ const HodPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.hodReviewOd(this.activeRequestId, false, reason);
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record HOD rejection");
       }
 
       this.closeReviewModal();
@@ -580,14 +571,7 @@ const HodPortal = {
       if (window.App && App.refreshNotifications) App.refreshNotifications();
       Toast.show("Request rejected. Student and advisor have been notified with the reason.", "info");
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.hodReviewOd(this.activeRequestId, false, reason);
-        this.closeReviewModal();
-        await this.loadRequests();
-        Toast.show("Request rejected with reason in demo ledger.", "info");
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 

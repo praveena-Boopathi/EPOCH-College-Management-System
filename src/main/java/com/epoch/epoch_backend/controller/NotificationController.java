@@ -47,6 +47,17 @@ public class NotificationController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
+    @PostMapping("/mark-all-read")
+    public ResponseEntity<?> markAllAsRead() {
+        try {
+            UserProfile user = getCurrentUser();
+            notificationService.markAllAsRead(user.getIdentifier());
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+        }
+    }
+
     @GetMapping("/unread-count")
     public ResponseEntity<?> getUnreadCount() {
         try {

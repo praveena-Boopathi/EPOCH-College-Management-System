@@ -27,20 +27,16 @@ const AdvisorPortal = {
       const res = await Auth.fetchWithAuth("/api/od/advisor");
       if (res.ok) {
         this.requests = await res.json();
-        if (this.requests.length === 0 && window.DemoStore) {
-          // Fallback to section demo items
-          const sec = this.currentUser.section || "CSE-A";
-          this.requests = DemoStore.getOdRequests().filter(r => r.section === sec);
-        }
         this.renderRequests();
+        return;
       }
     } catch (e) {
       console.warn("Using local demo section requests:", e);
-      if (window.DemoStore) {
-        const sec = this.currentUser.section || "CSE-A";
-        this.requests = DemoStore.getOdRequests().filter(r => r.section === sec);
-        this.renderRequests();
-      }
+    }
+    if (window.DemoStore && this.currentUser && !Auth.getToken()) {
+      const sec = this.currentUser.section || "CSE-A";
+      this.requests = DemoStore.getOdRequests().filter(r => r.section === sec);
+      this.renderRequests();
     }
   },
 
@@ -118,6 +114,10 @@ const AdvisorPortal = {
   },
 
   openReviewModal(id) {
+    if (window.App && typeof App.viewRequestDetails === "function") {
+      App.viewRequestDetails(id);
+      return;
+    }
     const r = this.requests.find(x => x.id === id);
     if (!r) return;
     this.activeRequestId = id;
@@ -195,9 +195,8 @@ const AdvisorPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.advisorReviewOd(this.activeRequestId, true, "Recommended for approval.");
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record advisor approval");
       }
 
       this.closeReviewModal();
@@ -209,18 +208,7 @@ const AdvisorPortal = {
         Toast.show("Request approved and forwarded to HOD for final sanction.", "success");
       }
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.advisorReviewOd(this.activeRequestId, true, "Recommended for approval.");
-        this.closeReviewModal();
-        await this.loadRequests();
-        if (isBonafide) {
-          Toast.show("Bonafide Certificate approved and forwarded to HOD queue!", "success");
-        } else {
-          Toast.show("Request approved and forwarded to HOD queue!", "success");
-        }
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 
@@ -245,9 +233,8 @@ const AdvisorPortal = {
       });
 
       if (!res.ok) {
-        if (window.DemoStore) {
-          DemoStore.advisorReviewOd(this.activeRequestId, false, reason);
-        }
+        const errObj = await res.json().catch(() => null);
+        throw new Error((errObj && errObj.error) ? errObj.error : "Failed to record advisor rejection");
       }
 
       this.closeReviewModal();
@@ -255,14 +242,7 @@ const AdvisorPortal = {
       App.refreshNotifications();
       Toast.show("OD request rejected. Student has been notified with the audit reason.", "info");
     } catch (err) {
-      if (window.DemoStore) {
-        DemoStore.advisorReviewOd(this.activeRequestId, false, reason);
-        this.closeReviewModal();
-        await this.loadRequests();
-        Toast.show("OD request marked rejected with reason in demo ledger.", "info");
-      } else {
-        Toast.show("Error: " + err.message, "danger");
-      }
+      Toast.show("Error: " + err.message, "danger");
     }
   },
 

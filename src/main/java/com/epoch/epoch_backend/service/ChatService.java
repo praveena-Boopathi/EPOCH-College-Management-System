@@ -836,7 +836,10 @@ public class ChatService {
                     "MESSAGE_REQUEST",
                     reqId,
                     null,
-                    recipient.getRole().name());
+                    recipient.getRole().name(),
+                    "Direct Message",
+                    sender.getName(),
+                    sender.getRole().name());
         } catch (Exception ignored) {
         }
 
@@ -1794,7 +1797,10 @@ public class ChatService {
                 "MESSAGE_REQUEST_ACCEPTED",
                 convId,
                 null,
-                req.getSenderRole() != null ? req.getSenderRole() : "STUDENT");
+                req.getSenderRole() != null ? req.getSenderRole() : "STUDENT",
+                "Direct Message",
+                recipient.getName(),
+                recipient.getRole().name());
 
         // Invalidate sync cache for both participants so the conversation and request
         // status appear immediately
@@ -1981,7 +1987,10 @@ public class ChatService {
                     "MESSAGE_REQUEST_DECLINED",
                     requestId,
                     null,
-                    req.getSenderRole() != null ? req.getSenderRole() : "STUDENT");
+                    req.getSenderRole() != null ? req.getSenderRole() : "STUDENT",
+                    "Direct Message",
+                    recipient.getName(),
+                    recipient.getRole().name());
         } catch (Exception ignored) {
         }
 
@@ -3271,6 +3280,9 @@ public class ChatService {
                         "CHAT_MESSAGE",
                         realConvId,
                         null,
+                        user.getRole().name(),
+                        "Direct Message",
+                        user.getName(),
                         user.getRole().name());
             }
         } catch (Exception ignored) {

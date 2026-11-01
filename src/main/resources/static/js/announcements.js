@@ -318,13 +318,15 @@ const AnnouncementApp = {
   selectedAudiences: ['ALL'],
 
   openPostAnnouncementModal() {
-    const user = this.currentUser || (typeof Auth !== 'undefined' ? Auth.getUser() : null);
+    const user = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) || this.currentUser;
     if (!user) {
       alert('Please sign in to publish announcements.');
       return;
     }
+    this.currentUser = user;
 
-    if (user.role === 'STUDENT' || user.role === 'ADMIN') {
+    const role = (user.role || '').toUpperCase();
+    if (role === 'STUDENT' || role === 'ADMIN') {
       alert('Unauthorized: Only Class Advisors, HOD, and Principal can create or publish official announcements.');
       return;
     }
@@ -347,8 +349,14 @@ const AnnouncementApp = {
     const lblB = document.getElementById('lblAudience_CSEB');
     const lblC = document.getElementById('lblAudience_CSEC');
 
-    if (user.role === 'ADVISOR' || user.role === 'CLASS_ADVISOR') {
-      // Determine advisor's authoritative assigned section
+    const isAdvisor = (role === 'ADVISOR' || role === 'CLASS_ADVISOR');
+    const isHod = (role === 'HOD' || role === 'HEAD_OF_DEPARTMENT');
+    const isPrincipal = (role === 'PRINCIPAL');
+
+    if (isAdvisor) {
+      // 1. CLASS ADVISOR PERMISSIONS:
+      // Strictly restricted to their assigned section only.
+      // Other sections remain locked and disabled.
       let userSec = (user.section || 'CSE-A').trim().toUpperCase();
       const cleanId = (user.identifier || '').trim().toLowerCase();
       if (cleanId === 'arularasi') userSec = 'CSE-A';
@@ -388,31 +396,90 @@ const AnnouncementApp = {
           item.lbl.title = isAssigned ? `Your assigned section (${userSec})` : `Locked: You are assigned to Section ${userSec} only`;
         }
       });
-    } else {
-      // HOD & Principal have full multi-select authorization including All Students
+    } else if (isHod) {
+      // 2. HOD PERMISSIONS:
+      // Remove advisor restriction notice.
       if (restrictionBox) restrictionBox.style.display = 'none';
-      if (lblAll) lblAll.style.display = 'flex';
+
+      // For HOD (CSE), enable all section options: CSE-A, CSE-B, CSE-C.
+      // HOD can select only CSE-A, only CSE-B, only CSE-C, any two together, all three together,
+      // and unselect previously selected sections.
+      if (lblAll) {
+        lblAll.style.display = 'flex';
+        lblAll.style.opacity = '1';
+        lblAll.style.cursor = 'pointer';
+        lblAll.title = 'Select or deselect all CSE sections';
+        const span = lblAll.querySelector('span');
+        if (span) span.textContent = '🏛️ All CSE Sections';
+      }
+      if (chkAll) {
+        chkAll.disabled = false;
+        chkAll.checked = true;
+      }
+
+      // Default for HOD: all three CSE sections selected
+      this.selectedAudiences = ['CSE-A', 'CSE-B', 'CSE-C'];
+
+      [
+        { chk: chkA, lbl: lblA, val: 'CSE-A' },
+        { chk: chkB, lbl: lblB, val: 'CSE-B' },
+        { chk: chkC, lbl: lblC, val: 'CSE-C' }
+      ].forEach(item => {
+        if (!item.chk) return;
+        item.chk.disabled = false; // Unlocked & enabled!
+        item.chk.checked = true;
+        if (item.lbl) {
+          item.lbl.style.display = 'flex';
+          item.lbl.style.opacity = '1';
+          item.lbl.style.cursor = 'pointer';
+          item.lbl.style.background = '#f0fdfa';
+          item.lbl.style.borderColor = '#0d9488';
+          item.lbl.title = '';
+        }
+      });
+
+      if (chkAll && lblAll) {
+        lblAll.style.background = '#f0fdfa';
+        lblAll.style.borderColor = '#0d9488';
+      }
+    } else {
+      // 3. PRINCIPAL PERMISSIONS:
+      // Full announcement audience selection permissions including All Students
+      if (restrictionBox) restrictionBox.style.display = 'none';
+      if (lblAll) {
+        lblAll.style.display = 'flex';
+        lblAll.style.opacity = '1';
+        lblAll.style.cursor = 'pointer';
+        const span = lblAll.querySelector('span');
+        if (span) span.textContent = '🏛️ All Students';
+      }
 
       // Default: All Students selected
       this.selectedAudiences = ['ALL'];
 
-      const items = [
-        { chk: chkAll, lbl: lblAll, val: 'ALL' },
+      if (chkAll) {
+        chkAll.disabled = false;
+        chkAll.checked = true;
+      }
+      if (lblAll) {
+        lblAll.style.background = '#f0fdfa';
+        lblAll.style.borderColor = '#0d9488';
+      }
+
+      [
         { chk: chkA, lbl: lblA, val: 'CSE-A' },
         { chk: chkB, lbl: lblB, val: 'CSE-B' },
         { chk: chkC, lbl: lblC, val: 'CSE-C' }
-      ];
-
-      items.forEach(item => {
+      ].forEach(item => {
         if (!item.chk) return;
         item.chk.disabled = false;
-        item.chk.checked = (item.val === 'ALL');
+        item.chk.checked = false;
         if (item.lbl) {
           item.lbl.style.display = 'flex';
           item.lbl.style.opacity = '1';
-          item.lbl.style.background = (item.val === 'ALL') ? '#f0fdfa' : '#ffffff';
-          item.lbl.style.borderColor = (item.val === 'ALL') ? '#0d9488' : '#e2e8f0';
           item.lbl.style.cursor = 'pointer';
+          item.lbl.style.background = '#ffffff';
+          item.lbl.style.borderColor = '#e2e8f0';
           item.lbl.title = '';
         }
       });
@@ -431,9 +498,13 @@ const AnnouncementApp = {
   },
 
   onAudienceCheckboxChange(changedVal) {
-    const user = this.currentUser || (typeof Auth !== 'undefined' ? Auth.getUser() : null);
-    const isStaff = user && (user.role === 'ADVISOR' || user.role === 'CLASS_ADVISOR');
-    if (isStaff) {
+    const user = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) || this.currentUser;
+    const role = (user && user.role ? user.role : '').toUpperCase();
+    const isAdvisor = (role === 'ADVISOR' || role === 'CLASS_ADVISOR');
+    const isHod = (role === 'HOD' || role === 'HEAD_OF_DEPARTMENT');
+    const isPrincipal = (role === 'PRINCIPAL');
+
+    if (isAdvisor) {
       // Advisors cannot change audience away from their assigned section
       return;
     }
@@ -444,29 +515,41 @@ const AnnouncementApp = {
     const chkC = document.getElementById('annAudience_CSEC');
 
     if (changedVal === 'ALL') {
-      if (isStaff) {
-        if (chkAll) chkAll.checked = false;
-        return;
-      }
       if (chkAll && chkAll.checked) {
-        // Deselect individual section checkboxes
+        if (isHod) {
+          // For HOD, selecting ALL checks all 3 CSE sections
+          if (chkA) chkA.checked = true;
+          if (chkB) chkB.checked = true;
+          if (chkC) chkC.checked = true;
+          this.selectedAudiences = ['CSE-A', 'CSE-B', 'CSE-C'];
+        } else {
+          // For Principal, select All Students
+          if (chkA) chkA.checked = false;
+          if (chkB) chkB.checked = false;
+          if (chkC) chkC.checked = false;
+          this.selectedAudiences = ['ALL'];
+        }
+      } else {
+        // Deselect All
         if (chkA) chkA.checked = false;
         if (chkB) chkB.checked = false;
         if (chkC) chkC.checked = false;
-        this.selectedAudiences = ['ALL'];
-      } else {
         this.selectedAudiences = [];
       }
     } else {
-      // An individual section was clicked, deselect ALL
-      if (chkAll) chkAll.checked = false;
-
+      // Individual section checkbox changed
       const checked = [];
       if (chkA && chkA.checked) checked.push('CSE-A');
       if (chkB && chkB.checked) checked.push('CSE-B');
       if (chkC && chkC.checked) checked.push('CSE-C');
 
-      this.selectedAudiences = checked;
+      if (checked.length === 3) {
+        if (chkAll) chkAll.checked = true;
+        this.selectedAudiences = isPrincipal ? ['ALL'] : ['CSE-A', 'CSE-B', 'CSE-C'];
+      } else {
+        if (chkAll) chkAll.checked = false;
+        this.selectedAudiences = checked;
+      }
     }
 
     this.syncCheckboxStyles();
@@ -474,22 +557,42 @@ const AnnouncementApp = {
   },
 
   removeSection(secToRemove) {
-    const user = this.currentUser || (typeof Auth !== 'undefined' ? Auth.getUser() : null);
-    const isStaff = user && (user.role === 'ADVISOR' || user.role === 'CLASS_ADVISOR');
-    if (isStaff) {
+    const user = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) || this.currentUser;
+    const role = (user && user.role ? user.role : '').toUpperCase();
+    const isAdvisor = (role === 'ADVISOR' || role === 'CLASS_ADVISOR');
+    if (isAdvisor) {
       // Advisors cannot remove their assigned section
       return;
     }
 
+    const chkAll = document.getElementById('annAudience_ALL');
+    const chkA = document.getElementById('annAudience_CSEA');
+    const chkB = document.getElementById('annAudience_CSEB');
+    const chkC = document.getElementById('annAudience_CSEC');
+
     if (secToRemove === 'ALL') {
-      const chkAll = document.getElementById('annAudience_ALL');
       if (chkAll) chkAll.checked = false;
-      this.selectedAudiences = this.selectedAudiences.filter(s => s !== 'ALL');
+      if (chkA) chkA.checked = false;
+      if (chkB) chkB.checked = false;
+      if (chkC) chkC.checked = false;
+      this.selectedAudiences = [];
     } else {
       const idMap = { 'CSE-A': 'annAudience_CSEA', 'CSE-B': 'annAudience_CSEB', 'CSE-C': 'annAudience_CSEC' };
       const chk = document.getElementById(idMap[secToRemove]);
       if (chk) chk.checked = false;
-      this.selectedAudiences = this.selectedAudiences.filter(s => s !== secToRemove);
+
+      // Filter out removed section
+      let current = (this.selectedAudiences || []).filter(s => s !== secToRemove);
+      if (current.includes('ALL')) {
+        // Expand ALL into remaining sections
+        current = ['CSE-A', 'CSE-B', 'CSE-C'].filter(s => s !== secToRemove);
+        ['CSE-A', 'CSE-B', 'CSE-C'].forEach(s => {
+          const c = document.getElementById(idMap[s]);
+          if (c) c.checked = (s !== secToRemove);
+        });
+      }
+      this.selectedAudiences = current;
+      if (chkAll) chkAll.checked = false;
     }
 
     this.syncCheckboxStyles();
@@ -606,16 +709,20 @@ const AnnouncementApp = {
   async submitAnnouncement(e) {
     if (e && e.preventDefault) e.preventDefault();
 
-    const user = this.currentUser || (typeof Auth !== 'undefined' ? Auth.getUser() : null);
+    const user = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) || this.currentUser;
     if (!user) {
       alert('Authentication required.');
       return;
     }
+    this.currentUser = user;
 
-    if (user.role === 'STUDENT' || user.role === 'ADMIN') {
+    const role = (user.role || '').toUpperCase();
+    if (role === 'STUDENT' || role === 'ADMIN') {
       alert('Unauthorized: Only Class Advisors, HOD, and Principal can publish official announcements.');
       return;
     }
+
+    const isAdvisor = (role === 'ADVISOR' || role === 'CLASS_ADVISOR');
 
     const title = (document.getElementById('announcementTitle')?.value || '').trim();
     const message = (document.getElementById('announcementMessage')?.value || '').trim();
@@ -632,7 +739,7 @@ const AnnouncementApp = {
     }
 
     let targetSections = [...(this.selectedAudiences || [])];
-    if (user.role === 'ADVISOR' || user.role === 'CLASS_ADVISOR') {
+    if (isAdvisor) {
       let userSec = (user.section || 'CSE-A').trim().toUpperCase();
       const cleanId = (user.identifier || '').trim().toLowerCase();
       if (cleanId === 'arularasi') userSec = 'CSE-A';
@@ -642,7 +749,7 @@ const AnnouncementApp = {
     }
 
     if (targetSections.length === 0) {
-      const msg = (user.role === 'ADVISOR' || user.role === 'CLASS_ADVISOR')
+      const msg = isAdvisor
         ? 'Please select at least one target section (CSE-A, CSE-B, or CSE-C).'
         : 'Please select at least one target audience (CSE-A, CSE-B, CSE-C, or All Students).';
       if (typeof Toast !== 'undefined' && Toast.show) {

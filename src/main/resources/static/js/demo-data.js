@@ -3554,6 +3554,38 @@ const DemoStore = {
           status: "PENDING_ADVISOR",
           currentStage: "ADVISOR",
           submittedAt: "19 Mar 2026, 04:00 PM"
+        },
+        {
+          id: "EPOCH-OD-2026-B01",
+          regNo: "620823104066",
+          studentName: "Jansi G",
+          dept: "CSE",
+          section: "CSE-B",
+          odType: "Internal Hackathon / Coding Contest",
+          reason: "Participation in National Hackathon 2026",
+          venue: "Gnanamani College of Technology",
+          startDate: "2026-04-10",
+          endDate: "2026-04-11",
+          numberOfDays: 2,
+          status: "PENDING_ADVISOR",
+          currentStage: "ADVISOR",
+          submittedAt: "01 Apr 2026, 09:30 AM"
+        },
+        {
+          id: "EPOCH-OD-1793516731713-3134",
+          regNo: "620823104002",
+          studentName: "Abinaya G",
+          dept: "CSE",
+          section: "CSE-A",
+          odType: "Technical Symposium / Conference",
+          reason: "Attending National Conference on Distributed Systems",
+          venue: "Anna University Chennai",
+          startDate: "2026-04-15",
+          endDate: "2026-04-16",
+          numberOfDays: 2,
+          status: "APPROVED",
+          currentStage: "COMPLETED",
+          submittedAt: "02 Apr 2026, 10:00 AM"
         }
       ],
 

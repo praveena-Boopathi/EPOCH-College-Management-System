@@ -44,11 +44,15 @@ public class OdRequest {
     private String academicYear = "IV Year B.E.";
     private String hostelDetails;
     private String parentContact;
+    private String studentUid;
 
     public OdRequest() {}
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+
+    public String getStudentUid() { return studentUid != null ? studentUid : regNo; }
+    public void setStudentUid(String studentUid) { this.studentUid = studentUid; }
 
     public String getRegNo() { return regNo; }
     public void setRegNo(String regNo) { this.regNo = regNo; }

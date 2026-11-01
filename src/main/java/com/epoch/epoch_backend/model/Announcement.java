@@ -10,7 +10,7 @@ public class Announcement {
     private String priority = "NORMAL"; // NORMAL, IMPORTANT, URGENT
     private String targetAudience = "STUDENT"; // STUDENT, ALL
     private String targetDept = "CSE"; // CSE, ALL
-    private String targetSection = "ALL"; // single section or ALL (backward compatible)
+    private String targetSection; // single section or ALL (backward compatible)
     private List<String> targetSections = new ArrayList<>(); // Multi-select sections e.g. ["CSE-A", "CSE-B"]
     private String targetAudienceLabel; // e.g. "CSE-A, CSE-B" or "All Students"
     private String targetStudentId;
