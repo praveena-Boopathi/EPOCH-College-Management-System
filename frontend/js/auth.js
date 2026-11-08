@@ -17,10 +17,21 @@ const Auth = {
     if (typeof window !== "undefined" && window.EPOCH_API_BASE) {
       return String(window.EPOCH_API_BASE).replace(/\/+$/, "");
     }
+    if (typeof window !== "undefined" && window.EPOCH_CONFIG && window.EPOCH_CONFIG.BACKEND_URL) {
+      return String(window.EPOCH_CONFIG.BACKEND_URL).replace(/\/+$/, "");
+    }
     try {
       const stored = localStorage.getItem(this.API_BASE_KEY);
-      if (stored) return stored.replace(/\/+$/, "");
+      if (stored && stored.trim()) return stored.trim().replace(/\/+$/, "");
     } catch (e) {}
+
+    // Production domain fallback (e.g. Vercel deployment)
+    if (typeof window !== "undefined" && window.location && window.location.hostname) {
+      const host = window.location.hostname.toLowerCase();
+      if (host !== "localhost" && host !== "127.0.0.1") {
+        return "https://epoch-college-management-system-2.onrender.com";
+      }
+    }
     return "";
   },
 

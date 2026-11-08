@@ -54,8 +54,10 @@ public class SecurityConfig {
             config.addAllowedOriginPattern("http://127.0.0.1:*");
             config.addAllowedOriginPattern("https://*.vercel.app");
         }
+        // Always explicitly permit the deployed production Vercel frontend origin
+        config.addAllowedOriginPattern("https://epoch-khaki.vercel.app");
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);

@@ -20,7 +20,7 @@
   "rewrites": [
     {
       "source": "/api/:match*",
-      "destination": "https://epoch-backend.onrender.com/api/:match*"
+      "destination": "https://epoch-college-management-system-2.onrender.com/api/:match*"
     },
     {
       "source": "/((?!css/|js/|assets/|favicon.ico|.*\\..*).*)",
