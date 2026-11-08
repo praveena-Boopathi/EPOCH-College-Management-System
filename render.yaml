@@ -16,6 +16,8 @@ services:
         generateValue: true
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_BASE64
+        sync: false
       - key: EPOCH_CORS_ALLOWED_ORIGINS
         sync: false
 
