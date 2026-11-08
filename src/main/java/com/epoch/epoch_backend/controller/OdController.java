@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,20 @@ public class OdController {
         this.pdfService = pdfService;
     }
 
+    private Map<String, Object> errorBody(String msg) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("error", msg != null && !msg.trim().isEmpty() ? msg : "An unexpected error occurred");
+        return map;
+    }
+
+    private Map<String, Object> errorBody(Exception ex) {
+        String msg = ex != null ? ex.getMessage() : null;
+        if (msg == null || msg.trim().isEmpty()) {
+            msg = ex != null ? ex.getClass().getSimpleName() : "An unexpected error occurred";
+        }
+        return errorBody(msg);
+    }
+
     private UserProfile getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof UserProfile p) {
@@ -41,12 +56,12 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only students can save OD drafts"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only students can save OD drafts"));
             }
             OdRequest draft = odService.saveDraftOd(user.getIdentifier(), request);
             return ResponseEntity.ok(draft);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -55,12 +70,12 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only students can submit OD requests"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only students can submit OD requests"));
             }
             OdRequest created = odService.submitOd(user.getIdentifier(), request);
             return ResponseEntity.ok(created);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -69,12 +84,12 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             List<OdRequest> list = odService.getStudentRequests(user.getIdentifier());
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -83,7 +98,7 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.ADVISOR) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             String sec = user.getSection();
             if (sec == null || sec.trim().isEmpty()) {
@@ -96,7 +111,7 @@ public class OdController {
             List<OdRequest> list = odService.getAdvisorRequests(sec);
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -105,12 +120,12 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.HOD) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             List<OdRequest> list = odService.getHodRequests();
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -119,12 +134,12 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             List<OdRequest> list = odService.getPrincipalRequests();
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -133,11 +148,11 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             OdRequest req = odService.getRequestById(id);
-            if (req == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Request not found"));
+            if (req == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Request not found"));
             
             // Authorization checks:
             if (user.getRole() == UserRole.STUDENT && !req.getRegNo().equals(user.getIdentifier())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied: You are not authorized to view other students' requests."));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied: You are not authorized to view other students' requests."));
             }
             if (user.getRole() == UserRole.ADVISOR) {
                 String advSec = user.getSection();
@@ -145,12 +160,12 @@ public class OdController {
                     advSec = OdService.getSectionForAdvisor(user.getIdentifier());
                 }
                 if (advSec != null && req.getSection() != null && !OdService.isSameSection(advSec, req.getSection())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied: Request belongs to another class section."));
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied: Request belongs to another class section."));
                 }
             }
             return ResponseEntity.ok(req);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -159,7 +174,7 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.ADVISOR) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only Class Advisors can perform this action"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only Class Advisors can perform this action"));
             }
             String sec = user.getSection();
             if (sec == null || sec.trim().isEmpty()) {
@@ -173,9 +188,9 @@ public class OdController {
             OdRequest updated = odService.advisorAction(id, user.getIdentifier(), user.getName(), sec, approved, reason);
             return ResponseEntity.ok(updated);
         } catch (SecurityException sex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody(sex));
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -184,16 +199,16 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.HOD) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only HOD can perform this action"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only HOD can perform this action"));
             }
             boolean approved = Boolean.TRUE.equals(body.get("approved"));
             String reason = (String) body.get("reason");
             OdRequest updated = odService.hodAction(id, user.getIdentifier(), user.getName(), approved, reason);
             return ResponseEntity.ok(updated);
         } catch (SecurityException sex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody(sex));
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -202,16 +217,16 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only Principal can perform this action"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only Principal can perform this action"));
             }
             boolean approved = Boolean.TRUE.equals(body.get("approved"));
             String reason = (String) body.get("reason");
             OdRequest updated = odService.principalAction(id, user.getIdentifier(), user.getName(), approved, reason);
             return ResponseEntity.ok(updated);
         } catch (SecurityException sex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", sex.getMessage()));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody(sex));
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -220,11 +235,11 @@ public class OdController {
         try {
             UserProfile user = getCurrentUser();
             OdRequest req = odService.getRequestById(id);
-            if (req == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Request not found");
+            if (req == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Request not found"));
 
             // Authorization: Only the student themselves or authorized staff can download
             if (user.getRole() == UserRole.STUDENT && !req.getRegNo().equals(user.getIdentifier())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             if (user.getRole() == UserRole.ADVISOR) {
                 String advSec = user.getSection();
@@ -232,7 +247,7 @@ public class OdController {
                     advSec = OdService.getSectionForAdvisor(user.getIdentifier());
                 }
                 if (advSec != null && req.getSection() != null && !OdService.isSameSection(advSec, req.getSection())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
                 }
             }
 
@@ -242,7 +257,7 @@ public class OdController {
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 }

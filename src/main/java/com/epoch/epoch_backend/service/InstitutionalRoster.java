@@ -220,6 +220,9 @@ public class InstitutionalRoster {
     public static UserProfile findStudent(String regNoOrEmail) {
         if (regNoOrEmail == null) return null;
         String clean = regNoOrEmail.trim().toLowerCase();
+        if ("student".equals(clean) || "student.demo@epoch.edu".equals(clean) || "student@epoch.edu".equals(clean) || "student@gct.ac.in".equals(clean)) {
+            clean = "620823104002";
+        }
         for (UserProfile p : ROSTER_BY_ID.values()) {
             if (p.getIdentifier().equalsIgnoreCase(clean) || (p.getEmail() != null && p.getEmail().equalsIgnoreCase(clean))) {
                 return p;

@@ -15,11 +15,54 @@ public class UserService {
 
     public static final String CURRENT_ACADEMIC_YEAR = "IV Year B.E.";
     private static final Map<String, String> PHOTO_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, UserProfile> USER_PROFILE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile boolean academicYearMigrationDone = false;
 
     private final Firestore db;
 
     public UserService(Firestore db) {
         this.db = db;
+    }
+
+    public static UserProfile getCachedProfile(String identifier) {
+        if (identifier == null) return null;
+        return USER_PROFILE_CACHE.get(identifier.trim().toLowerCase());
+    }
+
+    public static void setCachedProfile(String identifier, UserProfile profile) {
+        if (identifier == null || profile == null) return;
+        USER_PROFILE_CACHE.put(identifier.trim().toLowerCase(), profile);
+        USER_PROFILE_CACHE.put(identifier.trim(), profile);
+    }
+
+    public static boolean isResourceExhausted(Throwable t) {
+        while (t != null) {
+            if (t instanceof com.google.api.gax.rpc.ResourceExhaustedException) return true;
+            if (t instanceof io.grpc.StatusRuntimeException sre && sre.getStatus().getCode() == io.grpc.Status.Code.RESOURCE_EXHAUSTED) return true;
+            String msg = t.getMessage();
+            if (msg != null && (msg.contains("RESOURCE_EXHAUSTED") || msg.contains("Quota exceeded"))) return true;
+            t = t.getCause();
+        }
+        return false;
+    }
+
+    public static UserProfile cloneProfile(UserProfile source) {
+        if (source == null) return null;
+        UserProfile p = new UserProfile();
+        p.setId(source.getId());
+        p.setIdentifier(source.getIdentifier());
+        p.setName(source.getName());
+        p.setEmail(source.getEmail());
+        p.setContact(source.getContact());
+        p.setDepartment(source.getDepartment());
+        p.setSection(source.getSection());
+        p.setRole(source.getRole());
+        p.setAcademicYear(source.getAcademicYear());
+        p.setYear(source.getYear());
+        p.setStudentType(source.getStudentType());
+        p.setBio(source.getBio());
+        p.setProfilePhoto(source.getProfilePhoto());
+        return p;
     }
 
     public static String getCachedPhoto(String identifier) {
@@ -38,11 +81,19 @@ public class UserService {
 
     public UserProfile findStudent(String regNoOrEmail) throws ExecutionException, InterruptedException {
         String query = regNoOrEmail.trim();
+        String clean = query.toLowerCase();
+        if ("student".equals(clean) || "student.demo@epoch.edu".equals(clean) || "student@epoch.edu".equals(clean) || "student@gct.ac.in".equals(clean)) {
+            query = "620823104002";
+        }
+        UserProfile cached = getCachedProfile(query);
+        if (cached != null) return cloneProfile(cached);
+
         UserProfile student = InstitutionalRoster.findStudent(query);
         if (student != null) {
-            String photo = getCachedPhoto(student.getIdentifier());
-            if (photo != null) student.setProfilePhoto(photo);
-            return student;
+            UserProfile copy = cloneProfile(student);
+            String photo = getCachedPhoto(copy.getIdentifier());
+            if (photo != null) copy.setProfilePhoto(photo);
+            return copy;
         }
 
         try {
@@ -57,7 +108,7 @@ public class UserService {
             if (doc != null && doc.exists()) {
                 UserProfile p = new UserProfile();
                 p.setId(doc.getId());
-                p.setIdentifier(doc.getString("regNo"));
+                p.setIdentifier(doc.getString("regNo") != null ? doc.getString("regNo") : doc.getId());
                 p.setName(doc.getString("name"));
                 p.setEmail(doc.getString("email"));
                 p.setContact(doc.getString("contact") != null ? doc.getString("contact") : "+91 98765 00000");
@@ -80,7 +131,8 @@ public class UserService {
                     setCachedPhoto(p.getIdentifier(), photo);
                 }
 
-                return p;
+                setCachedProfile(p.getIdentifier(), p);
+                return cloneProfile(p);
             }
         } catch (Exception ex) {
             // Firestore quota limit or offline; use authoritative institutional roster
@@ -96,19 +148,23 @@ public class UserService {
             clean = "gopinath";
         } else if ("dhivyabharathi".equals(clean) || "dhivya".equals(clean) || "advisor.b.demo@epoch.edu".equals(clean) || "divyabharathi@gct.ac.in".equals(clean)) {
             clean = "divyabharathi";
-        } else if ("advisor.c.demo@epoch.edu".equals(clean) || "rajavathijayapriya@gct.ac.in".equals(clean) || "rajavathi".equals(clean)) {
+        } else if ("advisor.c.demo@epoch.edu".equals(clean) || "rajavathijayapriya@gct.ac.in".equals(clean) || "rajavathi".equals(clean) || "jayapriya".equals(clean) || "raja".equals(clean)) {
             clean = "rajavathijayapriya";
-        } else if ("advisor.demo@epoch.edu".equals(clean) || "arularasi@gct.ac.in".equals(clean)) {
+        } else if ("advisor".equals(clean) || "staff".equals(clean) || "advisor.demo@epoch.edu".equals(clean) || "arularasi@gct.ac.in".equals(clean)) {
             clean = "arularasi";
         } else if ("admin".equals(clean) || "admin@gct.ac.in".equals(clean) || "admin.demo@epoch.edu".equals(clean)) {
             clean = "admin";
         }
 
+        UserProfile cached = getCachedProfile(clean);
+        if (cached != null) return cloneProfile(cached);
+
         UserProfile authStaff = getAuthoritativeStaffProfile(clean);
         if (authStaff != null) {
+            UserProfile copy = cloneProfile(authStaff);
             String photo = getCachedPhoto(clean);
-            if (photo != null) authStaff.setProfilePhoto(photo);
-            return authStaff;
+            if (photo != null) copy.setProfilePhoto(photo);
+            return copy;
         }
 
         try {
@@ -185,7 +241,7 @@ public class UserService {
             p.setRole(UserRole.ADVISOR);
             p.setAcademicYear("Staff / Faculty");
             p.setBio("Academic advisor for Section CSE-B.");
-        } else if ("rajavathijayapriya".equals(clean)) {
+        } else if ("rajavathijayapriya".equals(clean) || "jayapriya".equals(clean) || "raja".equals(clean)) {
             p = new UserProfile();
             p.setId("rajavathijayapriya");
             p.setIdentifier("rajavathijayapriya");

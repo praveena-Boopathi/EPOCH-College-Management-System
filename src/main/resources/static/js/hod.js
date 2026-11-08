@@ -8,6 +8,27 @@ const HodPortal = {
   activeRequestId: null,
   activeFilter: "PENDING_HOD",
   searchQuery: "",
+  activeCategory: null,
+  metricSearchQuery: "",
+  metricCategoryFilter: "ALL",
+  metricStatusFilter: "ALL",
+
+  formatStatusBadge(status) {
+    switch (status) {
+      case "PENDING_ADVISOR":
+        return '<span class="badge-tag badge-warning">⏳ Awaiting Advisor</span>';
+      case "PENDING_HOD":
+        return '<span class="badge-tag badge-warning">⏳ Awaiting HOD</span>';
+      case "PENDING_PRINCIPAL":
+        return '<span class="badge-tag badge-info">🏛️ Forwarded to Principal</span>';
+      case "APPROVED":
+        return '<span class="badge-tag badge-approved">✅ Approved</span>';
+      case "REJECTED":
+        return '<span class="badge-tag badge-rejected">❌ Rejected</span>';
+      default:
+        return `<span class="badge-tag badge-secondary">${this.escape(status || "UNKNOWN")}</span>`;
+    }
+  },
 
   async init(user) {
     this.currentUser = user;
@@ -113,15 +134,17 @@ const HodPortal = {
 
   isRejected(r) {
     if (!r) return false;
-    return r.status === "REJECTED" || (r.hodDecision && r.hodDecision.status === "REJECTED");
+    return (r.hodDecision && r.hodDecision.status === "REJECTED") ||
+           (r.status === "REJECTED" && (r.currentStage === "HOD" || r.rejectedByRole === "HOD" || (r.rejectedBy && r.rejectedBy.toLowerCase().includes("hod")) || (r.timeline && r.timeline.some(e => e.eventType === "HOD_REJECTION"))));
   },
 
   isApproved(r) {
     if (!r || this.isRejected(r)) return false;
-    if (r.status === "APPROVED") return true;
-    if (r.status === "PENDING_PRINCIPAL") return true;
     if (r.hodApproved === true) return true;
     if (r.hodDecision && r.hodDecision.status === "APPROVED") return true;
+    if (r.status === "PENDING_PRINCIPAL") return true;
+    if (r.status === "APPROVED") return true;
+    if (r.timeline && r.timeline.some(e => e.eventType === "HOD_APPROVAL" || (e.action === "APPROVED" && e.actorRole === "HOD"))) return true;
     return false;
   },
 
@@ -132,14 +155,11 @@ const HodPortal = {
 
   renderRequests() {
     const tbody = document.getElementById("hodRequestsTbody");
-    if (!tbody) return;
 
-    let pending = 0, approved = 0, rejected = 0;
-    this.requests.forEach(r => {
-      if (this.isPending(r)) pending++;
-      else if (this.isApproved(r)) approved++;
-      else if (this.isRejected(r)) rejected++;
-    });
+    const pendingList = (this.requests || []).filter(r => this.isPending(r));
+    const approvedList = (this.requests || []).filter(r => this.isApproved(r));
+    const rejectedList = (this.requests || []).filter(r => this.isRejected(r));
+    const totalList = this.requests || [];
 
     const elP = document.getElementById("hodMetricPending");
     const elA = document.getElementById("hodMetricApproved");
@@ -147,23 +167,30 @@ const HodPortal = {
     const elT = document.getElementById("hodMetricTotal");
     const qBadge = document.getElementById("hodQueueCountBadge");
 
-    if (elP) elP.textContent = pending;
-    if (elA) elA.textContent = approved;
-    if (elR) elR.textContent = rejected;
-    if (elT) elT.textContent = this.requests.length;
+    if (elP) elP.textContent = pendingList.length;
+    if (elA) elA.textContent = approvedList.length;
+    if (elR) elR.textContent = rejectedList.length;
+    if (elT) elT.textContent = totalList.length;
     if (qBadge) {
-      qBadge.textContent = `${pending} Pending`;
-      qBadge.className = pending > 0 ? "badge-tag badge-warning" : "badge-tag badge-approved";
+      qBadge.textContent = `${pendingList.length} Pending`;
+      qBadge.className = pendingList.length > 0 ? "badge-tag badge-warning" : "badge-tag badge-approved";
     }
 
     const bP = document.getElementById("hodFilterBadgePending");
     const bA = document.getElementById("hodFilterBadgeApproved");
     const bR = document.getElementById("hodFilterBadgeRejected");
     const bAll = document.getElementById("hodFilterBadgeAll");
-    if (bP) bP.textContent = pending;
-    if (bA) bA.textContent = approved;
-    if (bR) bR.textContent = rejected;
-    if (bAll) bAll.textContent = this.requests.length;
+    if (bP) bP.textContent = pendingList.length;
+    if (bA) bA.textContent = approvedList.length;
+    if (bR) bR.textContent = rejectedList.length;
+    if (bAll) bAll.textContent = totalList.length;
+
+    // Refresh interactive category details if currently open
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+
+    if (!tbody) return;
 
     // Filter requests
     let filtered = this.requests.slice();
@@ -290,6 +317,327 @@ const HodPortal = {
           <td>${actionButtons}</td>
         </tr>
       `;
+    }).join("");
+  },
+
+  showCategoryDetails(category) {
+    this.activeCategory = category;
+
+    // Highlight active card
+    ["hodCardPending", "hodCardApproved", "hodCardRejected", "hodCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const activeMap = {
+      PENDING: "hodCardPending",
+      APPROVED: "hodCardApproved",
+      REJECTED: "hodCardRejected",
+      TOTAL: "hodCardTotal"
+    };
+    const activeCard = document.getElementById(activeMap[category]);
+    if (activeCard) activeCard.classList.add("active-card");
+
+    const section = document.getElementById("hodMetricDetailsSection");
+    if (section) section.style.display = "block";
+
+    this.renderCategoryDetails(category);
+
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  },
+
+  closeCategoryDetails() {
+    this.activeCategory = null;
+
+    ["hodCardPending", "hodCardApproved", "hodCardRejected", "hodCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const section = document.getElementById("hodMetricDetailsSection");
+    if (section) section.style.display = "none";
+  },
+
+  onMetricSearchInput(val) {
+    this.metricSearchQuery = (val || "").trim().toLowerCase();
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricCategoryChange(val) {
+    this.metricCategoryFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricStatusChange(val) {
+    this.metricStatusFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  resetMetricFilters() {
+    this.metricSearchQuery = "";
+    this.metricCategoryFilter = "ALL";
+    this.metricStatusFilter = "ALL";
+    const sInput = document.getElementById("hodMetricSearchInput");
+    const cFilter = document.getElementById("hodMetricCategoryFilter");
+    const stFilter = document.getElementById("hodMetricStatusFilter");
+    if (sInput) sInput.value = "";
+    if (cFilter) cFilter.value = "ALL";
+    if (stFilter) stFilter.value = "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  renderCategoryDetails(category) {
+    const iconEl = document.getElementById("hodMetricDetailsIcon");
+    const titleEl = document.getElementById("hodMetricDetailsTitle");
+    const badgeEl = document.getElementById("hodMetricDetailsBadge");
+    const subtextEl = document.getElementById("hodMetricDetailsSubtext");
+    const thead = document.getElementById("hodMetricDetailsThead");
+    const tbody = document.getElementById("hodMetricDetailsTbody");
+
+    if (!thead || !tbody) return;
+
+    let baseList = [];
+    if (category === "PENDING") {
+      baseList = (this.requests || []).filter(r => this.isPending(r));
+      if (iconEl) iconEl.textContent = "⏳";
+      if (titleEl) titleEl.textContent = "Pending My Review";
+      if (subtextEl) subtextEl.textContent = "Department requests endorsed by Class Advisors awaiting your official executive decision.";
+    } else if (category === "APPROVED") {
+      baseList = (this.requests || []).filter(r => this.isApproved(r));
+      if (iconEl) iconEl.textContent = "✅";
+      if (titleEl) titleEl.textContent = "Approved & Forwarded Requests";
+      if (subtextEl) subtextEl.textContent = "Requests approved by HOD (forwarded to Principal for Bonafide or finalized for OD/Leave).";
+    } else if (category === "REJECTED") {
+      baseList = (this.requests || []).filter(r => this.isRejected(r));
+      if (iconEl) iconEl.textContent = "❌";
+      if (titleEl) titleEl.textContent = "Rejected Requests with Reason";
+      if (subtextEl) subtextEl.textContent = "Department requests rejected during HOD review with recorded rejection reasons.";
+    } else {
+      category = "TOTAL";
+      baseList = this.requests || [];
+      if (iconEl) iconEl.textContent = "🏛️";
+      if (titleEl) titleEl.textContent = "Total Department Requests (CSE)";
+      if (subtextEl) subtextEl.textContent = "Complete registry of all student requests across CSE-A, CSE-B, and CSE-C sections.";
+    }
+
+    // Apply Filters
+    let filtered = baseList.filter(r => {
+      if (this.metricSearchQuery) {
+        const q = this.metricSearchQuery;
+        const text = [
+          r.id,
+          r.studentName,
+          r.regNo,
+          r.department,
+          r.section,
+          r.dept,
+          r.odType,
+          r.category,
+          r.eventTitle,
+          r.reason,
+          r.purpose,
+          r.organizer,
+          r.venue
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      if (this.metricCategoryFilter && this.metricCategoryFilter !== "ALL") {
+        const cat = (r.odType || r.category || "").toLowerCase();
+        if (!cat.includes(this.metricCategoryFilter.toLowerCase())) return false;
+      }
+      if (this.metricStatusFilter && this.metricStatusFilter !== "ALL") {
+        if (r.status !== this.metricStatusFilter) return false;
+      }
+      return true;
+    });
+
+    if (badgeEl) {
+      let bClass = "badge-tag badge-info";
+      if (category === "PENDING") bClass = "badge-tag badge-warning";
+      else if (category === "APPROVED") bClass = "badge-tag badge-approved";
+      else if (category === "REJECTED") bClass = "badge-tag badge-rejected";
+      badgeEl.className = bClass;
+      badgeEl.textContent = `${filtered.length} of ${baseList.length} Records`;
+    }
+
+    const isRejectedCategory = (category === "REJECTED");
+
+    if (isRejectedCategory) {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event Title / Purpose</th>
+          <th>Applicable Dates</th>
+          <th>Rejection Reason & Remarks</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event Title / Purpose</th>
+          <th>Dates & Submitted</th>
+          <th>Current Stage / Approver</th>
+          <th>Advisor Endorsement</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      const msg = baseList.length === 0
+        ? `No requests recorded in the "${category}" category for Department of CSE.`
+        : "No requests match your current search and filter criteria.";
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px; color:#64748b;">ℹ️ ${msg}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(r => {
+      const submittedDate = r.createdAt ? (r.createdAt.includes("T") ? r.createdAt.split("T")[0] : r.createdAt.substring(0, 10)) : (r.submittedDate || r.submittedAt || "—");
+      const dateRange = `${this.escape(r.fromDate || r.startDate || "")} ${r.toDate && r.toDate !== r.fromDate ? ' to ' + this.escape(r.toDate) : ''}`.trim() || "Single Day";
+      const isPendingThis = this.isPending(r);
+
+      const studentCell = `
+        <div>
+          <strong style="color:var(--primary); font-size:13px;">${this.escape(r.studentName || 'Student')}</strong>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Reg: <strong>${this.escape(r.regNo || '—')}</strong></div>
+          <div style="display:flex; gap:4px; align-items:center; margin-top:3px; flex-wrap:wrap;">
+            <span class="badge-tag badge-secondary" style="font-size:10px;">${this.escape(r.dept || r.department || 'CSE')}</span>
+            <span class="badge-tag badge-section" style="font-size:10px;">${this.escape(r.section || 'CSE-A')}</span>
+            ${r.year ? `<span class="badge-tag badge-secondary" style="font-size:10px;">Year ${this.escape(r.year)}</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      const purposeText = r.eventTitle || r.reason || r.purpose || r.eventDetails || "Institutional Request";
+      const purposeCell = `
+        <div style="max-width:260px;">
+          <div style="font-weight:600; color:#1e293b; font-size:12px; line-height:1.4;">${this.escape(purposeText)}</div>
+          ${r.organizer ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Org: ${this.escape(r.organizer)}</div>` : ''}
+        </div>
+      `;
+
+      const statusBadge = this.formatStatusBadge(r.status);
+
+      let actionButtons = `
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Full Request, Documents & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            🔍 View Details
+          </button>
+      `;
+      if (isPendingThis) {
+        actionButtons += `
+          <button class="btn btn-sm btn-primary" onclick="HodPortal.openReviewModal('${r.id}')" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            Review & Action
+          </button>
+          <button class="btn btn-sm btn-success" onclick="HodPortal.quickApprove('${r.id}')" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px; background:#059669; color:#fff;">
+            ⚡ Quick Approve
+          </button>
+        `;
+      } else if (r.status === "APPROVED") {
+        actionButtons += `
+          <button class="btn btn-sm btn-success" onclick="App.downloadPdf('${r.id}')" title="Download Official Endorsed PDF" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            📄 PDF
+          </button>
+        `;
+      }
+      actionButtons += `</div>`;
+
+      if (isRejectedCategory) {
+        const rejReason = r.rejectionReason || (r.hodDecision && r.hodDecision.comments) || (r.advisorDecision && r.advisorDecision.comments) || "Rejection remarks not specified";
+        const rejBy = r.rejectedBy || (r.hodDecision && r.hodDecision.by) || "Head of Department";
+        const rejAt = r.rejectedAt || (r.hodDecision && r.hodDecision.timestamp) || "—";
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag badge-teal" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td style="font-size:12px;">${this.escape(dateRange)}</td>
+            <td>
+              <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; color:#991b1b; font-size:11.5px; max-width:280px;">
+                <div style="font-weight:700;">❌ ${this.escape(rejReason)}</div>
+                <div style="font-size:10.5px; color:#b91c1c; margin-top:3px;">Rejected by: <strong>${this.escape(rejBy)}</strong> (${this.escape(rejAt)})</div>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      } else {
+        const adv = r.advisorDecision || {};
+        let advEndorsementHtml = '';
+        if (adv.status === "APPROVED" || r.advisorApproved || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || r.status === "APPROVED") {
+          const advName = adv.by || adv.approver || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
+          advEndorsementHtml = `
+            <div>
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ Endorsed</span>
+              <div style="font-size:11px; color:#475569; margin-top:2px;">${this.escape(advName)}</div>
+            </div>
+          `;
+        } else if (adv.status === "REJECTED") {
+          advEndorsementHtml = `<span class="badge-tag badge-rejected" style="font-size:10.5px;">❌ Advisor Rejected</span>`;
+        } else {
+          advEndorsementHtml = `<span class="badge-tag badge-secondary" style="font-size:10.5px;">Pending Advisor</span>`;
+        }
+
+        let stageInfoHtml = '';
+        if (r.status === "PENDING_HOD") {
+          stageInfoHtml = `<div style="font-weight:700; color:var(--warning); font-size:11.5px;">⏳ Awaiting HOD Action</div>`;
+        } else if (r.status === "PENDING_PRINCIPAL") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ HOD Endorsed</span>
+              <div style="font-size:11px; color:#64748b;">Forwarded to Principal</div>
+            </div>
+          `;
+        } else if (r.status === "APPROVED") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✅ Fully Sanctioned</span>
+              <div style="font-size:10px; color:#16a34a;">Digital Signatures Applied</div>
+            </div>
+          `;
+        } else if (r.status === "REJECTED") {
+          stageInfoHtml = `<span class="badge-tag badge-rejected" style="font-size:10.5px;">❌ Halted</span>`;
+        } else {
+          stageInfoHtml = `<span class="badge-tag badge-secondary" style="font-size:10.5px;">${this.escape(r.currentStage || 'PROCESSING')}</span>`;
+        }
+
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag badge-teal" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td>
+              <div style="font-size:12px; font-weight:600; color:#334155;">${this.escape(dateRange)}</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:2px;">📅 Submitted: ${this.escape(submittedDate)}</div>
+            </td>
+            <td>${stageInfoHtml}</td>
+            <td>${advEndorsementHtml}</td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      }
     }).join("");
   },
 

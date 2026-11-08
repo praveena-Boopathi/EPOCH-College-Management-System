@@ -50,7 +50,7 @@ public class AuthService {
 
         // Verify password
         boolean passwordValid = false;
-        if (profile.getRole() == UserRole.STUDENT && "student@12".equals(password)) {
+        if (profile.getRole() == UserRole.STUDENT && ("student@12".equals(password) || "student@123".equals(password))) {
             passwordValid = true;
         } else if (profile.getRole() == UserRole.ADVISOR && ("advisor@123".equals(password) || "staff@123".equals(password))) {
             passwordValid = true;

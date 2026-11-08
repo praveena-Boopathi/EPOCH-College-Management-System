@@ -35,6 +35,11 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/public-info")
+    public ResponseEntity<?> getPublicInfo() {
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "epoch-backend"));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

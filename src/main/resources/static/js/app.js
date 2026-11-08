@@ -1185,7 +1185,7 @@ const App = {
     }
     try {
       const token = Auth.getToken();
-      const res = await fetch(`/api/fee/receipts/${encodeURIComponent(receiptId)}/pdf`, {
+      const res = await fetch(Auth.apiUrl(`/api/fee/receipts/${encodeURIComponent(receiptId)}/pdf`), {
         headers: { "Authorization": "Bearer " + token }
       });
       if (!res.ok) {
@@ -1228,7 +1228,7 @@ const App = {
     if (!id) return;
     try {
       const token = Auth.getToken();
-      const res = await fetch(`/api/od/${encodeURIComponent(id)}/pdf`, {
+      const res = await fetch(Auth.apiUrl(`/api/od/${encodeURIComponent(id)}/pdf`), {
         headers: { "Authorization": "Bearer " + token }
       });
       if (!res.ok) {
@@ -1257,7 +1257,7 @@ const App = {
     if (!id) return;
     try {
       const token = Auth.getToken();
-      const res = await fetch(`/api/complaints/${encodeURIComponent(id)}/pdf`, {
+      const res = await fetch(Auth.apiUrl(`/api/complaints/${encodeURIComponent(id)}/pdf`), {
         headers: { "Authorization": "Bearer " + token }
       });
       if (!res.ok) {

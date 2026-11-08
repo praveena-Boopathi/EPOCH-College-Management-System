@@ -58,6 +58,12 @@ const ChatApp = {
   _directorySearchTimer: null,
 
   // ------------------ Helper & Identifier Utilities ------------------
+  apiUrl(path) {
+    if (typeof Auth !== 'undefined' && Auth.apiUrl) return Auth.apiUrl(path);
+    if (window.Auth && window.Auth.apiUrl) return window.Auth.apiUrl(path);
+    return path;
+  },
+
   getAuthHeaders(extra = {}) {
     const headers = { 'Accept': 'application/json', ...extra };
     let token = null;
@@ -365,7 +371,7 @@ const ChatApp = {
   // ------------------ Conversation List Management ------------------
   async loadConversations(isSilent = false) {
     try {
-      const res = await fetch('/api/chat/conversations', {
+      const res = await fetch(this.apiUrl('/api/chat/conversations'), {
         headers: this.getAuthHeaders()
       });
       if (res.ok) {
@@ -543,7 +549,7 @@ const ChatApp = {
     let conv = this.conversations.find(c => c.id === convId);
     if (!conv) {
       try {
-        const res = await fetch('/api/chat/conversations', {
+        const res = await fetch(this.apiUrl('/api/chat/conversations'), {
           headers: this.getAuthHeaders()
         });
         if (res.ok) {
@@ -623,7 +629,7 @@ const ChatApp = {
   async markAsRead(convId) {
     if (!convId) return;
     try {
-      await fetch(`/api/chat/conversations/${encodeURIComponent(convId)}/read`, {
+      await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(convId)}/read`), {
         method: 'POST',
         headers: this.getAuthHeaders({ 'Content-Type': 'application/json' })
       });
@@ -649,7 +655,7 @@ const ChatApp = {
     this.isLoadingMessages = true;
 
     try {
-      const res = await fetch(`/api/chat/conversations/${encodeURIComponent(convId)}/messages`, {
+      const res = await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(convId)}/messages`), {
         headers: this.getAuthHeaders()
       });
       if (res.ok) {
@@ -983,7 +989,7 @@ const ChatApp = {
     this.broadcastTyping(false);
 
     try {
-      const res = await fetch(`/api/chat/conversations/${encodeURIComponent(convId)}/messages`, {
+      const res = await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(convId)}/messages`), {
         method: 'POST',
         headers: this.getAuthHeaders({
           'Content-Type': 'application/json'
@@ -1157,7 +1163,7 @@ const ChatApp = {
     const convId = this.activeConversation.id;
 
     try {
-      const res = await fetch(`/api/chat/conversations/${encodeURIComponent(convId)}/messages/${encodeURIComponent(messageId)}`, {
+      const res = await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(convId)}/messages/${encodeURIComponent(messageId)}`), {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
@@ -1297,7 +1303,7 @@ const ChatApp = {
     this.isTypingBroadcasted = isTyping;
 
     try {
-      await fetch(`/api/chat/conversations/${encodeURIComponent(this.activeConversation.id)}/typing`, {
+      await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(this.activeConversation.id)}/typing`), {
         method: 'POST',
         headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ isTyping: isTyping })
@@ -1308,7 +1314,7 @@ const ChatApp = {
   async pollTypingStatus() {
     if (!this.activeConversation || !this.activeConversation.id) return;
     try {
-      const res = await fetch(`/api/chat/conversations/${encodeURIComponent(this.activeConversation.id)}/typing`, {
+      const res = await fetch(this.apiUrl(`/api/chat/conversations/${encodeURIComponent(this.activeConversation.id)}/typing`), {
         headers: this.getAuthHeaders()
       });
       if (res.ok) {
@@ -1584,7 +1590,7 @@ const ChatApp = {
       if (this.directoryCategory === 'students') roleParam = '&role=STUDENT';
 
       const url = `/api/chat/users/search?query=${encodeURIComponent(this.directorySearchQuery)}${roleParam}&limit=40`;
-      const res = await fetch(url, {
+      const res = await fetch(this.apiUrl(url), {
         headers: this.getAuthHeaders()
       });
       if (!res.ok) throw new Error("Failed to load users from directory.");
@@ -1660,7 +1666,7 @@ const ChatApp = {
     if (window.Toast) Toast.show("Opening direct verified channel...", "info");
 
     try {
-      const res = await fetch('/api/chat/conversations', {
+      const res = await fetch(this.apiUrl('/api/chat/conversations'), {
         method: 'POST',
         headers: this.getAuthHeaders({
           'Content-Type': 'application/json'

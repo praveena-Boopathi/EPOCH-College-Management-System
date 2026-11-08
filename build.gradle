@@ -36,6 +36,17 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// Security: Exclude sensitive credentials from production resources and build artifacts
+tasks.named('processResources') {
+	exclude '**/firebase-service-account.json'
+	exclude '**/firebase-service-account-*.json'
+}
+
+tasks.named('bootJar') {
+	exclude '**/firebase-service-account.json'
+	exclude '**/firebase-service-account-*.json'
+}
+
 tasks.named('bootRun') {
 	jvmArgs = ['-Xmx768m', '-XX:+UseSerialGC']
 }

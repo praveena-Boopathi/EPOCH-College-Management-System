@@ -8,6 +8,7 @@ const StudentPortal = {
   complaints: [],
   currentUser: null,
   draftOd: null,
+  isSubmitting: false,
   trackFilter: "ALL",
   trackSearchQuery: "",
   allTrackingRequests: [],
@@ -44,8 +45,9 @@ const StudentPortal = {
   async loadOdRequests() {
     try {
       const res = await Auth.fetchWithAuth("/api/od/student");
-      if (res.ok) {
-        this.requests = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok && Array.isArray(parsed.data)) {
+        this.requests = parsed.data;
         this.updateSummaryMetrics();
         this.renderOdRequests();
         this.renderLeaves();
@@ -75,8 +77,9 @@ const StudentPortal = {
   async loadComplaints() {
     try {
       const res = await Auth.fetchWithAuth("/api/complaints/student");
-      if (res.ok) {
-        this.complaints = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok && Array.isArray(parsed.data)) {
+        this.complaints = parsed.data;
         this.updateSummaryMetrics();
         this.renderComplaints();
         if (this.activeCategory === "COMPLAINTS") {
@@ -1082,6 +1085,8 @@ const StudentPortal = {
     };
 
     const draftBtn = document.getElementById("odSaveDraftBtn");
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
     if (draftBtn) draftBtn.disabled = true;
 
     try {
@@ -1091,19 +1096,21 @@ const StudentPortal = {
         body: JSON.stringify(draftPayload)
       });
 
-      if (res.ok) {
-        const saved = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
+        const saved = parsed.data;
         document.getElementById("odActiveDraftId").value = saved.id;
         await this.loadOdRequests();
         this.closeOdModal();
         Toast.show("OD application saved as draft! Reference: " + saved.id, "success");
       } else {
-        const err = await res.json();
-        Toast.show("Draft Error: " + (err.error || "Could not save draft"), "danger");
+        Toast.show("Draft Error: " + (parsed.error || "Could not save draft"), "danger");
       }
     } catch (e) {
+      console.error("[saveDraftOd] Draft error:", e);
       Toast.show("Draft Error: " + e.message, "danger");
     } finally {
+      this.isSubmitting = false;
       if (draftBtn) draftBtn.disabled = false;
     }
   },
@@ -1258,75 +1265,83 @@ const StudentPortal = {
   },
 
   async confirmSubmitOd() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
     this.closeConfirmModal();
 
-    const cat = document.getElementById("odSelectedCategory").value;
-    if (cat.toLowerCase().includes("bonafide")) {
-      this.closeOdModal();
-      return this.submitBonafide();
-    }
-    if (cat.toLowerCase().includes("leave")) {
-      this.closeOdModal();
-      return this.submitLeave();
-    }
-    const title = document.getElementById("odEventTitleInput").value.trim();
-    const org = document.getElementById("odOrganizerInput").value.trim();
-    const venue = document.getElementById("odVenueInput").value.trim();
-    const start = document.getElementById("odStartDateInput").value;
-    const end = document.getElementById("odEndDateInput").value;
-    const days = parseInt(document.getElementById("odDaysInput").value) || 1;
-    const reason = document.getElementById("odReasonInput").value.trim();
-    const draftId = document.getElementById("odActiveDraftId").value || null;
-
     const submitBtn = document.getElementById("odSubmitBtn");
+    const confirmBtn = document.getElementById("confirmSubmitFinalBtn");
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = "Submitting to Class Advisor...";
+      submitBtn.textContent = "Submitting application...";
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Submitting...";
     }
 
-    const payload = {
-      id: draftId,
-      odType: cat,
-      eventTitle: title,
-      organizer: org,
-      venue: venue,
-      startDate: start,
-      endDate: end,
-      numberOfDays: days,
-      reason: reason,
-      supportingDetails: org + " - " + venue,
-      documentName: this.currentFile ? this.currentFile.name : null,
-      documentType: this.currentFile ? this.currentFile.type : null,
-      documentData: this.currentFile ? this.currentFile.data : null,
-      documentSize: this.currentFile ? this.currentFile.size : 0
-    };
-
     try {
+      const cat = document.getElementById("odSelectedCategory").value;
+      const title = document.getElementById("odEventTitleInput").value.trim();
+      const org = document.getElementById("odOrganizerInput").value.trim();
+      const venue = document.getElementById("odVenueInput").value.trim();
+      const start = document.getElementById("odStartDateInput").value;
+      const end = document.getElementById("odEndDateInput").value;
+      const days = parseInt(document.getElementById("odDaysInput").value) || 1;
+      const reason = document.getElementById("odReasonInput").value.trim();
+      const draftId = document.getElementById("odActiveDraftId").value || null;
+
+      const payload = {
+        id: draftId,
+        odType: cat,
+        eventTitle: title,
+        organizer: org,
+        venue: venue,
+        startDate: start,
+        endDate: end,
+        numberOfDays: days,
+        reason: reason,
+        supportingDetails: org + " - " + venue,
+        documentName: this.currentFile ? this.currentFile.name : null,
+        documentType: this.currentFile ? this.currentFile.type : null,
+        documentData: this.currentFile ? this.currentFile.data : null,
+        documentSize: this.currentFile ? this.currentFile.size : 0
+      };
+
       const res = await Auth.fetchWithAuth("/api/od/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        const created = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
+        const created = parsed.data;
         this.closeOdModal();
         await this.loadOdRequests();
         App.refreshNotifications();
-        Toast.show("On-Duty application officially submitted to Class Advisor! Ref: " + created.id, "success");
+        const typeLabel = cat.toLowerCase().includes("bonafide") ? "Bonafide Certificate"
+                        : (cat.toLowerCase().includes("leave") ? "Leave Application" : (cat + " OD"));
+        Toast.show(`${typeLabel} application officially submitted to Class Advisor! Ref: ${created.id}`, "success");
       } else {
-        const err = await res.json();
-        Toast.show("Submission Error: " + (err.error || "Failed to submit OD"), "danger");
+        Toast.show("Submission Error: " + (parsed.error || "Failed to submit request"), "danger");
       }
     } catch (err) {
-      Toast.show("Submission Error: " + err.message, "danger");
+      console.error("[confirmSubmitOd] Submission error:", err);
+      Toast.show("Submission Error: " + (err.message || "Failed to submit request"), "danger");
     } finally {
+      this.isSubmitting = false;
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = `
           <span>🚀 Submit Application</span>
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
         `;
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Yes, Confirm & Submit";
       }
     }
   },
@@ -1853,6 +1868,9 @@ const StudentPortal = {
   },
 
   async submitLeave() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
     const category = this.currentLeaveCategory || "Day Scholar";
     const type = document.getElementById("leaveTypeInput").value;
     const start = document.getElementById("leaveStartInput").value;
@@ -1861,6 +1879,7 @@ const StudentPortal = {
     const reason = document.getElementById("leaveReasonInput").value.trim();
 
     if (!type || !start || !reason) {
+      this.isSubmitting = false;
       Toast.show("Please enter start date, leave type, and reason.", "warning");
       return;
     }
@@ -1912,20 +1931,21 @@ const StudentPortal = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        const created = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
+        const created = parsed.data;
         this.closeLeaveModal();
         await this.loadOdRequests();
         App.refreshNotifications();
         Toast.show(`${category} Leave application submitted to Class Advisor! Ref: ${created.id}`, "success");
       } else {
-        const errObj = await res.json().catch(() => null);
-        const errMessage = (errObj && errObj.error) ? errObj.error : "Submission failed";
-        Toast.show("Submission Error: " + errMessage, "danger");
+        Toast.show("Submission Error: " + (parsed.error || "Submission failed"), "danger");
       }
     } catch (e) {
-      Toast.show("Submission Error: " + e.message, "danger");
+      console.error("[submitLeave] Error submitting leave:", e);
+      Toast.show("Submission Error: " + (e.message || "Submission failed"), "danger");
     } finally {
+      this.isSubmitting = false;
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Leave Letter"; }
     }
   },
@@ -1989,11 +2009,15 @@ const StudentPortal = {
   },
 
   async submitBonafide() {
-    const purpose = document.getElementById("bonafidePurposeInput").value;
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
+    const purpose = document.getElementById("bonafidePurposeInput")?.value || "Passport Application";
     const year = document.getElementById("bonafideYearInput") ? document.getElementById("bonafideYearInput").value : "2025-2026";
     const details = document.getElementById("bonafideDetailsInput") ? document.getElementById("bonafideDetailsInput").value.trim() : "";
 
     if (!purpose) {
+      this.isSubmitting = false;
       Toast.show("Please select certificate purpose.", "warning");
       return;
     }
@@ -2010,25 +2034,37 @@ const StudentPortal = {
       supportingDetails: details || ("Bonafide Certificate Requisition for Academic Year " + year)
     };
 
+    const submitBtn = document.getElementById("bonafideSubmitBtn");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting to Advisor...";
+    }
+
     try {
       const res = await Auth.fetchWithAuth("/api/od/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        const created = await res.json();
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
+        const created = parsed.data;
         this.closeBonafideModal();
         await this.loadOdRequests();
         App.refreshNotifications();
         Toast.show("Bonafide certificate request submitted! Ref: " + created.id, "success");
       } else {
-        const errObj = await res.json().catch(() => null);
-        const errMessage = (errObj && errObj.error) ? errObj.error : "Failed to submit bonafide";
-        Toast.show("Submission Error: " + errMessage, "danger");
+        Toast.show("Submission Error: " + (parsed.error || "Failed to submit bonafide"), "danger");
       }
     } catch (e) {
-      Toast.show("Submission Error: " + e.message, "danger");
+      console.error("[submitBonafide] Error submitting bonafide:", e);
+      Toast.show("Submission Error: " + (e.message || "Failed to submit bonafide"), "danger");
+    } finally {
+      this.isSubmitting = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Request Certificate";
+      }
     }
   },
 
@@ -2060,19 +2096,25 @@ const StudentPortal = {
 
   async submitComplaint(e) {
     if (e) e.preventDefault();
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
     const cat = document.getElementById("cmpCategoryInput").value;
     const sub = document.getElementById("cmpSubjectInput").value.trim();
     const desc = document.getElementById("cmpDescInput").value.trim();
     const supp = document.getElementById("cmpSupportInput").value.trim();
 
     if (!cat || !sub || !desc) {
+      this.isSubmitting = false;
       Toast.show("Please enter category, subject, and a detailed description.", "warning");
       return;
     }
 
     const btn = document.getElementById("cmpSubmitBtn");
-    btn.disabled = true;
-    btn.textContent = "Delivering directly to Principal...";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Delivering directly to Principal...";
+    }
 
     try {
       const res = await Auth.fetchWithAuth("/api/complaints/submit", {
@@ -2089,7 +2131,8 @@ const StudentPortal = {
         })
       });
 
-      if (res.ok) {
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
         this.closeComplaintModal();
         const f = document.getElementById("complaintForm");
         if (f) f.reset();
@@ -2097,15 +2140,17 @@ const StudentPortal = {
         App.refreshNotifications();
         Toast.show("Confidential complaint delivered directly to Principal Dr. B. Sanjay Gandhi!", "success");
       } else {
-        const errObj = await res.json().catch(() => null);
-        const errMessage = (errObj && errObj.error) ? errObj.error : "Failed to deliver complaint to Principal";
-        Toast.show("Submission Error: " + errMessage, "danger");
+        Toast.show("Submission Error: " + (parsed.error || "Failed to deliver complaint to Principal"), "danger");
       }
     } catch (err) {
-      Toast.show("Submission Error: " + err.message, "danger");
+      console.error("[submitComplaint] Error submitting complaint:", err);
+      Toast.show("Submission Error: " + (err.message || "Failed to deliver complaint"), "danger");
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Confirm & Submit Directly to Principal";
+      this.isSubmitting = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirm & Submit Directly to Principal";
+      }
     }
   },
 

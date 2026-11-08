@@ -8,6 +8,78 @@ const PrincipalPortal = {
   currentUser: null,
   activeComplaintId: null,
   activeOdId: null,
+  activeCategory: null,
+  metricSearchQuery: "",
+  metricCategoryFilter: "ALL",
+  metricStatusFilter: "ALL",
+
+  isPrincipalScope(r) {
+    if (!r) return false;
+    return r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+  },
+
+  isPending(r) {
+    if (!r) return false;
+    return r.status === "PENDING_PRINCIPAL" || (r.currentStage === "PRINCIPAL" && r.status !== "REJECTED");
+  },
+
+  isApproved(r) {
+    if (!r) return false;
+    return r.principalApproved === true ||
+           (r.principalDecision && r.principalDecision.status === "APPROVED") ||
+           (r.status === "APPROVED" && this.isPrincipalScope(r)) ||
+           (r.timeline && r.timeline.some(e => e.eventType === "PRINCIPAL_APPROVAL" || (e.action === "APPROVED" && e.actorRole === "PRINCIPAL")));
+  },
+
+  isRejected(r) {
+    if (!r) return false;
+    return (r.principalDecision && r.principalDecision.status === "REJECTED") ||
+           (r.status === "REJECTED" && (r.currentStage === "PRINCIPAL" || r.rejectedByRole === "PRINCIPAL" || (r.rejectedBy && r.rejectedBy.toLowerCase().includes("principal")) || (r.timeline && r.timeline.some(e => e.eventType === "PRINCIPAL_REJECTION"))));
+  },
+
+  formatStatusBadge(status) {
+    switch (status) {
+      case "PENDING_PRINCIPAL":
+        return '<span class="badge-tag badge-warning">⏳ Awaiting Principal</span>';
+      case "PENDING_HOD":
+        return '<span class="badge-tag badge-info">⏳ In HOD Review</span>';
+      case "PENDING_ADVISOR":
+        return '<span class="badge-tag badge-info">⏳ In Advisor Review</span>';
+      case "APPROVED":
+        return '<span class="badge-tag badge-approved">✅ Principal Sanctioned</span>';
+      case "RESOLVED":
+        return '<span class="badge-tag badge-approved">✅ Resolved</span>';
+      case "REJECTED":
+        return '<span class="badge-tag badge-rejected">❌ Rejected</span>';
+      case "UNDER_REVIEW":
+        return '<span class="badge-tag badge-info">Under Review</span>';
+      case "RECEIVED":
+        return '<span class="badge-tag badge-info" style="background:rgba(59,130,246,0.1); color:#2563eb;">Received</span>';
+      default:
+        return `<span class="badge-tag badge-secondary">${this.escape(status || "UNKNOWN")}</span>`;
+    }
+  },
+
+  updateMetrics() {
+    const pendingList = (this.odRequests || []).filter(r => this.isPending(r));
+    const approvedList = (this.odRequests || []).filter(r => this.isApproved(r));
+    const rejectedList = (this.odRequests || []).filter(r => this.isRejected(r));
+    const totalRequestsCount = (this.odRequests || []).length + (this.complaints || []).length;
+
+    const elP = document.getElementById("prinMetricPending");
+    const elA = document.getElementById("prinMetricApproved");
+    const elR = document.getElementById("prinMetricRejected");
+    const elT = document.getElementById("prinMetricTotal");
+
+    if (elP) elP.textContent = pendingList.length;
+    if (elA) elA.textContent = approvedList.length;
+    if (elR) elR.textContent = rejectedList.length;
+    if (elT) elT.textContent = totalRequestsCount;
+
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
 
   async init(user) {
     this.currentUser = user;
@@ -91,6 +163,7 @@ const PrincipalPortal = {
     if (elP) elP.textContent = pending;
     if (elR) elR.textContent = resolved;
     if (elT) elT.textContent = this.complaints.length;
+    this.updateMetrics();
 
     if (this.complaints.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:28px; color:#64748b;">🏛️ No complaints currently in the Principal inbox. Direct confidential channel is clear.</td></tr>';
@@ -281,6 +354,7 @@ const PrincipalPortal = {
     const tbody = document.getElementById("principalOdTbody");
     const elMetric = document.getElementById("prinMetricOdPending");
     if (elMetric) elMetric.textContent = this.odRequests.filter(r => r.status === "PENDING_PRINCIPAL").length;
+    this.updateMetrics();
     if (!tbody) return;
 
     if (this.odRequests.length === 0) {
@@ -333,6 +407,355 @@ const PrincipalPortal = {
           <td>${actionBtn}</td>
         </tr>
       `;
+    }).join("");
+  },
+
+  showCategoryDetails(category) {
+    this.activeCategory = category;
+
+    // Highlight active card
+    ["prinCardPending", "prinCardApproved", "prinCardRejected", "prinCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const activeMap = {
+      PENDING: "prinCardPending",
+      APPROVED: "prinCardApproved",
+      REJECTED: "prinCardRejected",
+      TOTAL: "prinCardTotal"
+    };
+    const activeCard = document.getElementById(activeMap[category]);
+    if (activeCard) activeCard.classList.add("active-card");
+
+    const section = document.getElementById("principalMetricDetailsSection");
+    if (section) section.style.display = "block";
+
+    this.renderCategoryDetails(category);
+
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  },
+
+  closeCategoryDetails() {
+    this.activeCategory = null;
+
+    ["prinCardPending", "prinCardApproved", "prinCardRejected", "prinCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const section = document.getElementById("principalMetricDetailsSection");
+    if (section) section.style.display = "none";
+  },
+
+  onMetricSearchInput(val) {
+    this.metricSearchQuery = (val || "").trim().toLowerCase();
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricCategoryChange(val) {
+    this.metricCategoryFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricStatusChange(val) {
+    this.metricStatusFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  resetMetricFilters() {
+    this.metricSearchQuery = "";
+    this.metricCategoryFilter = "ALL";
+    this.metricStatusFilter = "ALL";
+    const sInput = document.getElementById("principalMetricSearchInput");
+    const cFilter = document.getElementById("principalMetricCategoryFilter");
+    const stFilter = document.getElementById("principalMetricStatusFilter");
+    if (sInput) sInput.value = "";
+    if (cFilter) cFilter.value = "ALL";
+    if (stFilter) stFilter.value = "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  renderCategoryDetails(category) {
+    const iconEl = document.getElementById("principalMetricDetailsIcon");
+    const titleEl = document.getElementById("principalMetricDetailsTitle");
+    const badgeEl = document.getElementById("principalMetricDetailsBadge");
+    const subtextEl = document.getElementById("principalMetricDetailsSubtext");
+    const thead = document.getElementById("principalMetricDetailsThead");
+    const tbody = document.getElementById("principalMetricDetailsTbody");
+
+    if (!thead || !tbody) return;
+
+    let baseItems = [];
+    if (category === "PENDING") {
+      baseItems = (this.odRequests || []).filter(r => this.isPending(r)).map(r => ({ ...r, _isComplaint: false }));
+      if (iconEl) iconEl.textContent = "⏳";
+      if (titleEl) titleEl.textContent = "Pending My Review";
+      if (subtextEl) subtextEl.textContent = "Bonafide Certificate applications awaiting Principal final executive sanction.";
+    } else if (category === "APPROVED") {
+      baseItems = (this.odRequests || []).filter(r => this.isApproved(r)).map(r => ({ ...r, _isComplaint: false }));
+      if (iconEl) iconEl.textContent = "✅";
+      if (titleEl) titleEl.textContent = "Approved & Issued Requests";
+      if (subtextEl) subtextEl.textContent = "Requests officially approved and sanctioned by Principal with institutional digital signature.";
+    } else if (category === "REJECTED") {
+      baseItems = (this.odRequests || []).filter(r => this.isRejected(r)).map(r => ({ ...r, _isComplaint: false }));
+      if (iconEl) iconEl.textContent = "❌";
+      if (titleEl) titleEl.textContent = "Rejected Requests with Reason";
+      if (subtextEl) subtextEl.textContent = "Requests rejected by the Principal with recorded administrative remarks and audit logs.";
+    } else {
+      category = "TOTAL";
+      const bnfItems = (this.odRequests || []).map(r => ({ ...r, _isComplaint: false }));
+      const cmpItems = (this.complaints || []).map(c => ({
+        id: c.id,
+        studentName: c.studentName,
+        regNo: c.regNo,
+        department: c.department || c.section || "CSE",
+        section: c.section || "CSE",
+        year: c.year,
+        odType: `Complaint: ${c.category || 'Grievance'}`,
+        eventTitle: c.subject,
+        reason: c.description,
+        fromDate: c.submittedAt ? c.submittedAt.split(" ")[0] : "—",
+        toDate: c.submittedAt ? c.submittedAt.split(" ")[0] : "—",
+        submittedAt: c.submittedAt,
+        status: c.status,
+        currentStage: "PRINCIPAL",
+        _isComplaint: true,
+        _rawComplaint: c
+      }));
+      baseItems = [...bnfItems, ...cmpItems];
+      if (iconEl) iconEl.textContent = "🏛️";
+      if (titleEl) titleEl.textContent = "Total Institutional Requests & Complaints";
+      if (subtextEl) subtextEl.textContent = "Complete registry of Bonafide Certificates and confidential student complaints in Principal's jurisdiction.";
+    }
+
+    // Filter Items
+    let filtered = baseItems.filter(item => {
+      // Search
+      if (this.metricSearchQuery) {
+        const q = this.metricSearchQuery;
+        const text = [
+          item.id,
+          item.studentName,
+          item.regNo,
+          item.department,
+          item.section,
+          item.odType,
+          item.category,
+          item.eventTitle,
+          item.reason,
+          item.purpose
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      // Category filter
+      if (this.metricCategoryFilter && this.metricCategoryFilter !== "ALL") {
+        if (this.metricCategoryFilter === "COMPLAINT") {
+          if (!item._isComplaint) return false;
+        } else if (this.metricCategoryFilter === "Bonafide Certificate") {
+          if (item._isComplaint) return false;
+        }
+      }
+      // Status filter
+      if (this.metricStatusFilter && this.metricStatusFilter !== "ALL") {
+        if (item.status !== this.metricStatusFilter) return false;
+      }
+      return true;
+    });
+
+    if (badgeEl) {
+      let bClass = "badge-tag badge-info";
+      if (category === "PENDING") bClass = "badge-tag badge-warning";
+      else if (category === "APPROVED") bClass = "badge-tag badge-approved";
+      else if (category === "REJECTED") bClass = "badge-tag badge-rejected";
+      badgeEl.className = bClass;
+      badgeEl.textContent = `${filtered.length} of ${baseItems.length} Records`;
+    }
+
+    const isRejectedCategory = (category === "REJECTED");
+
+    if (isRejectedCategory) {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event Title / Purpose</th>
+          <th>Applicable Dates</th>
+          <th>Rejection Reason & Remarks</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event / Subject</th>
+          <th>Dates & Submitted</th>
+          <th>Current Stage / Approver</th>
+          <th>Advisor & HOD Endorsements</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      const msg = baseItems.length === 0
+        ? `No records currently in the "${category}" scope for the Principal.`
+        : "No requests match your current search and filter criteria.";
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px; color:#64748b;">ℹ️ ${msg}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(r => {
+      const submittedDate = r.createdAt ? (r.createdAt.includes("T") ? r.createdAt.split("T")[0] : r.createdAt.substring(0, 10)) : (r.submittedDate || r.submittedAt || "—");
+      const dateRange = `${this.escape(r.fromDate || r.startDate || "")} ${r.toDate && r.toDate !== r.fromDate ? ' to ' + this.escape(r.toDate) : ''}`.trim() || "Single Day";
+      const isPendingThis = this.isPending(r);
+
+      const studentCell = `
+        <div>
+          <strong style="color:var(--primary); font-size:13px;">${this.escape(r.studentName || 'Student')}</strong>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Reg: <strong>${this.escape(r.regNo || '—')}</strong></div>
+          <div style="display:flex; gap:4px; align-items:center; margin-top:3px; flex-wrap:wrap;">
+            <span class="badge-tag badge-secondary" style="font-size:10px;">${this.escape(r.department || 'CSE')}</span>
+            <span class="badge-tag badge-section" style="font-size:10px;">${this.escape(r.section || 'A')}</span>
+            ${r.year ? `<span class="badge-tag badge-secondary" style="font-size:10px;">Year ${this.escape(r.year)}</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      const purposeText = r.eventTitle || r.reason || r.purpose || r.eventDetails || "Institutional Request";
+      const purposeCell = `
+        <div style="max-width:260px;">
+          <div style="font-weight:600; color:#1e293b; font-size:12px; line-height:1.4;">${this.escape(purposeText)}</div>
+          ${r.organizer ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Org: ${this.escape(r.organizer)}</div>` : ''}
+        </div>
+      `;
+
+      const statusBadge = this.formatStatusBadge(r.status);
+
+      let actionButtons = '';
+      if (r._isComplaint) {
+        actionButtons = `
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-sm btn-primary" onclick="PrincipalPortal.openComplaintModal('${r.id}')" style="font-size:11px; padding:3px 8px;">
+              Review & Update
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="App.downloadComplaintPdf('${r.id}')" style="font-size:11px; padding:3px 6px;">
+              📥 PDF Record
+            </button>
+          </div>
+        `;
+      } else {
+        actionButtons = `
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Full Request, Prior Signatures & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+              🔍 View Details
+            </button>
+        `;
+        if (isPendingThis) {
+          actionButtons += `
+            <button class="btn btn-sm btn-primary" onclick="PrincipalPortal.openOdModal('${r.id}')" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+              Review & Sanction
+            </button>
+          `;
+        } else if (r.status === "APPROVED") {
+          actionButtons += `
+            <button class="btn btn-sm btn-success" onclick="App.downloadPdf('${r.id}')" title="Download Official Endorsed PDF" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+              📜 Certificate PDF
+            </button>
+          `;
+        }
+        actionButtons += `</div>`;
+      }
+
+      if (isRejectedCategory) {
+        const rejReason = r.rejectionReason || (r.principalDecision && r.principalDecision.comments) || (r.hodDecision && r.hodDecision.comments) || "Rejection remarks not specified";
+        const rejBy = r.rejectedBy || (r.principalDecision && r.principalDecision.by) || "Principal Executive";
+        const rejAt = r.rejectedAt || (r.principalDecision && r.principalDecision.timestamp) || "—";
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag badge-teal" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td style="font-size:12px;">${this.escape(dateRange)}</td>
+            <td>
+              <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; color:#991b1b; font-size:11.5px; max-width:280px;">
+                <div style="font-weight:700;">❌ ${this.escape(rejReason)}</div>
+                <div style="font-size:10.5px; color:#b91c1c; margin-top:3px;">Rejected by: <strong>${this.escape(rejBy)}</strong> (${this.escape(rejAt)})</div>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      } else {
+        let endorsementsHtml = '';
+        if (r._isComplaint) {
+          endorsementsHtml = `<span class="badge-tag badge-teal" style="font-size:10.5px;">Direct to Principal</span>`;
+        } else {
+          const adv = r.advisorDecision || {};
+          const hod = r.hodDecision || {};
+          const advName = adv.signerName || adv.approver || `Advisor (${r.section || 'CSE'})`;
+          const hodName = hod.signerName || hod.approver || 'Dr. K. Gopinath';
+          endorsementsHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px; font-size:11px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ Advisor: ${this.escape(advName)}</span>
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ HOD: ${this.escape(hodName)}</span>
+            </div>
+          `;
+        }
+
+        let stageInfoHtml = '';
+        if (r.status === "PENDING_PRINCIPAL") {
+          stageInfoHtml = `<div style="font-weight:700; color:var(--warning); font-size:11.5px;">⏳ Awaiting Principal Executive Sanction</div>`;
+        } else if (r.status === "APPROVED") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✅ Principal Sanctioned</span>
+              <div style="font-size:10px; color:#16a34a;">Seal & Signatures Affixed</div>
+            </div>
+          `;
+        } else if (r.status === "RESOLVED") {
+          stageInfoHtml = `<span class="badge-tag badge-approved" style="font-size:10.5px;">✅ Grievance Resolved</span>`;
+        } else if (r.status === "REJECTED") {
+          stageInfoHtml = `<span class="badge-tag badge-rejected" style="font-size:10.5px;">❌ Halted</span>`;
+        } else {
+          stageInfoHtml = `<span class="badge-tag badge-secondary" style="font-size:10.5px;">${this.escape(r.currentStage || r.status || 'PROCESSING')}</span>`;
+        }
+
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag ${r._isComplaint ? 'badge-warning' : 'badge-teal'}" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td>
+              <div style="font-size:12px; font-weight:600; color:#334155;">${this.escape(dateRange)}</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:2px;">📅 Submitted: ${this.escape(submittedDate)}</div>
+            </td>
+            <td>${stageInfoHtml}</td>
+            <td>${endorsementsHtml}</td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      }
     }).join("");
   },
 

@@ -23,6 +23,12 @@ public class OdService {
     private final SignatureService signatureService;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
     private final java.util.Map<String, OdRequest> memoryRequests = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile long lastRemoteFetchTime = 0;
+    private static final long FIRESTORE_FETCH_TTL_MS = 60000; // 60s cache TTL to prevent Firestore quota exhaustion
+
+    public boolean shouldFetchFromFirestore() {
+        return (System.currentTimeMillis() - lastRemoteFetchTime > FIRESTORE_FETCH_TTL_MS) || memoryRequests.isEmpty();
+    }
 
     public OdService(Firestore db, UserService userService, NotificationService notificationService,
             SignatureService signatureService) {
@@ -622,7 +628,7 @@ public class OdService {
         try {
             var existingSnap = db.collection("od_requests")
                     .whereEqualTo("regNo", student.getIdentifier())
-                    .get().get();
+                    .get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
             for (DocumentSnapshot doc : existingSnap.getDocuments()) {
                 OdRequest exist = doc.toObject(OdRequest.class);
                 if (exist != null)
@@ -789,22 +795,25 @@ public class OdService {
                 map.put(r.getId(), r);
             }
         }
-        try {
-            var snap = db.collection("od_requests").whereEqualTo("regNo", regNo).get().get(4000,
-                    java.util.concurrent.TimeUnit.MILLISECONDS);
-            for (DocumentSnapshot doc : snap.getDocuments()) {
-                OdRequest req = doc.toObject(OdRequest.class);
-                if (req != null) {
-                    if (req.getId() == null)
-                        req.setId(doc.getId());
-                    ensureWorkflowTimeline(req);
-                    map.put(req.getId(), req);
-                    memoryRequests.put(req.getId(), req);
+        if (shouldFetchFromFirestore()) {
+            try {
+                var snap = db.collection("od_requests").whereEqualTo("regNo", regNo).get().get(4000,
+                        java.util.concurrent.TimeUnit.MILLISECONDS);
+                for (DocumentSnapshot doc : snap.getDocuments()) {
+                    OdRequest req = doc.toObject(OdRequest.class);
+                    if (req != null) {
+                        if (req.getId() == null)
+                            req.setId(doc.getId());
+                        ensureWorkflowTimeline(req);
+                        map.put(req.getId(), req);
+                        memoryRequests.put(req.getId(), req);
+                    }
                 }
+                lastRemoteFetchTime = System.currentTimeMillis();
+            } catch (Exception ex) {
+                System.err.println(
+                        "Firestore read failed for student requests (serving in-memory cache): " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println(
-                    "Firestore read failed for student requests (serving in-memory cache): " + ex.getMessage());
         }
         List<OdRequest> list = new ArrayList<>(map.values());
         list.sort((a, b) -> {
@@ -829,21 +838,24 @@ public class OdService {
                 map.put(r.getId(), r);
             }
         }
-        try {
-            var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
-            for (DocumentSnapshot doc : snap.getDocuments()) {
-                OdRequest req = doc.toObject(OdRequest.class);
-                if (req != null && isSameSection(req.getSection(), normSec)) {
-                    if (req.getId() == null)
-                        req.setId(doc.getId());
-                    ensureWorkflowTimeline(req);
-                    map.put(req.getId(), req);
-                    memoryRequests.put(req.getId(), req);
+        if (shouldFetchFromFirestore()) {
+            try {
+                var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                for (DocumentSnapshot doc : snap.getDocuments()) {
+                    OdRequest req = doc.toObject(OdRequest.class);
+                    if (req != null && isSameSection(req.getSection(), normSec)) {
+                        if (req.getId() == null)
+                            req.setId(doc.getId());
+                        ensureWorkflowTimeline(req);
+                        map.put(req.getId(), req);
+                        memoryRequests.put(req.getId(), req);
+                    }
                 }
+                lastRemoteFetchTime = System.currentTimeMillis();
+            } catch (Exception ex) {
+                System.err.println(
+                        "Firestore read failed for advisor requests (serving in-memory cache): " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println(
-                    "Firestore read failed for advisor requests (serving in-memory cache): " + ex.getMessage());
         }
         List<OdRequest> list = new ArrayList<>(map.values());
         list.sort((a, b) -> {
@@ -869,8 +881,15 @@ public class OdService {
             boolean hasHodDecision = req.getHodDecision() != null;
             boolean isApprovedOrForwarded = req.getStatus() == OdStatus.PENDING_PRINCIPAL
                     || req.getStatus() == OdStatus.APPROVED;
+            boolean isRejectedAtHod = req.getStatus() == OdStatus.REJECTED && (
+                    "HOD".equalsIgnoreCase(req.getCurrentStage())
+                    || (req.getRejectedBy() != null && req.getRejectedBy().toLowerCase().contains("hod"))
+                    || hasHodDecision
+            );
+            boolean isDeptScope = req.getDept() == null || req.getDept().toUpperCase().contains("CSE")
+                    || (req.getSection() != null && req.getSection().toUpperCase().contains("CSE"));
 
-            if (isPendingHod || hasHodDecision || isApprovedOrForwarded) {
+            if (isDeptScope || isPendingHod || hasHodDecision || isApprovedOrForwarded || isRejectedAtHod) {
                 if (req.getStatus() == OdStatus.PENDING_HOD || "HOD".equalsIgnoreCase(req.getCurrentStage())) {
                     if (req.getAssignedReviewerId() == null || req.getAssignedReviewerId().isEmpty()) {
                         req.setAssignedReviewerId("gopinath");
@@ -881,36 +900,46 @@ public class OdService {
                 map.put(req.getId(), req);
             }
         }
-        try {
-            var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
-            for (DocumentSnapshot doc : snap.getDocuments()) {
-                OdRequest req = doc.toObject(OdRequest.class);
-                if (req != null) {
-                    if (req.getId() == null)
-                        req.setId(doc.getId());
-                    ensureWorkflowTimeline(req);
-                    boolean isPendingHod = req.getStatus() == OdStatus.PENDING_HOD
-                            || "HOD".equalsIgnoreCase(req.getCurrentStage())
-                            || "gopinath".equalsIgnoreCase(req.getAssignedReviewerId());
-                    boolean hasHodDecision = req.getHodDecision() != null;
-                    boolean isApprovedOrForwarded = req.getStatus() == OdStatus.PENDING_PRINCIPAL
-                            || req.getStatus() == OdStatus.APPROVED;
+        if (shouldFetchFromFirestore()) {
+            try {
+                var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                for (DocumentSnapshot doc : snap.getDocuments()) {
+                    OdRequest req = doc.toObject(OdRequest.class);
+                    if (req != null) {
+                        if (req.getId() == null)
+                            req.setId(doc.getId());
+                        ensureWorkflowTimeline(req);
+                        boolean isPendingHod = req.getStatus() == OdStatus.PENDING_HOD
+                                || "HOD".equalsIgnoreCase(req.getCurrentStage())
+                                || "gopinath".equalsIgnoreCase(req.getAssignedReviewerId());
+                        boolean hasHodDecision = req.getHodDecision() != null;
+                        boolean isApprovedOrForwarded = req.getStatus() == OdStatus.PENDING_PRINCIPAL
+                                || req.getStatus() == OdStatus.APPROVED;
+                        boolean isRejectedAtHod = req.getStatus() == OdStatus.REJECTED && (
+                                "HOD".equalsIgnoreCase(req.getCurrentStage())
+                                || (req.getRejectedBy() != null && req.getRejectedBy().toLowerCase().contains("hod"))
+                                || hasHodDecision
+                        );
+                        boolean isDeptScope = req.getDept() == null || req.getDept().toUpperCase().contains("CSE")
+                                || (req.getSection() != null && req.getSection().toUpperCase().contains("CSE"));
 
-                    if (isPendingHod || hasHodDecision || isApprovedOrForwarded) {
-                        if (req.getStatus() == OdStatus.PENDING_HOD || "HOD".equalsIgnoreCase(req.getCurrentStage())) {
-                            if (req.getAssignedReviewerId() == null || req.getAssignedReviewerId().isEmpty()) {
-                                req.setAssignedReviewerId("gopinath");
-                                req.setAssignedReviewerName("Dr. K. Gopinath (Head of Department)");
-                                req.setAssignedReviewerRole("HOD");
+                        if (isDeptScope || isPendingHod || hasHodDecision || isApprovedOrForwarded || isRejectedAtHod) {
+                            if (req.getStatus() == OdStatus.PENDING_HOD || "HOD".equalsIgnoreCase(req.getCurrentStage())) {
+                                if (req.getAssignedReviewerId() == null || req.getAssignedReviewerId().isEmpty()) {
+                                    req.setAssignedReviewerId("gopinath");
+                                    req.setAssignedReviewerName("Dr. K. Gopinath (Head of Department)");
+                                    req.setAssignedReviewerRole("HOD");
+                                }
                             }
+                            map.put(req.getId(), req);
+                            memoryRequests.put(req.getId(), req);
                         }
-                        map.put(req.getId(), req);
-                        memoryRequests.put(req.getId(), req);
                     }
                 }
+                lastRemoteFetchTime = System.currentTimeMillis();
+            } catch (Exception ex) {
+                System.err.println("Firestore read failed for HOD requests (serving in-memory cache): " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println("Firestore read failed for HOD requests (serving in-memory cache): " + ex.getMessage());
         }
         List<OdRequest> list = new ArrayList<>(map.values());
         list.sort((a, b) -> {
@@ -929,37 +958,48 @@ public class OdService {
     public List<OdRequest> getPrincipalRequests() {
         Map<String, OdRequest> map = new LinkedHashMap<>();
         for (OdRequest req : memoryRequests.values()) {
-            if (req.isRequiresPrincipalApproval()) {
+            boolean isBonafide = req.isRequiresPrincipalApproval() || req.isBonafide();
+            if (isBonafide) {
                 boolean isPendingPrin = req.getStatus() == OdStatus.PENDING_PRINCIPAL
                         || "PRINCIPAL".equalsIgnoreCase(req.getCurrentStage())
                         || "bsanjaygandhi".equalsIgnoreCase(req.getAssignedReviewerId());
                 boolean hasPrinDecision = req.getPrincipalDecision() != null;
-                if (isPendingPrin || hasPrinDecision) {
+                boolean isApproved = req.getStatus() == OdStatus.APPROVED;
+                boolean isRejected = req.getStatus() == OdStatus.REJECTED;
+                if (isPendingPrin || hasPrinDecision || isApproved || isRejected) {
                     map.put(req.getId(), req);
                 }
             }
         }
-        try {
-            var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
-            for (DocumentSnapshot doc : snap.getDocuments()) {
-                OdRequest req = doc.toObject(OdRequest.class);
-                if (req != null && req.isRequiresPrincipalApproval()) {
-                    if (req.getId() == null)
-                        req.setId(doc.getId());
-                    ensureWorkflowTimeline(req);
-                    boolean isPendingPrin = req.getStatus() == OdStatus.PENDING_PRINCIPAL
-                            || "PRINCIPAL".equalsIgnoreCase(req.getCurrentStage())
-                            || "bsanjaygandhi".equalsIgnoreCase(req.getAssignedReviewerId());
-                    boolean hasPrinDecision = req.getPrincipalDecision() != null;
-                    if (isPendingPrin || hasPrinDecision) {
-                        map.put(req.getId(), req);
-                        memoryRequests.put(req.getId(), req);
+        if (shouldFetchFromFirestore()) {
+            try {
+                var snap = db.collection("od_requests").get().get(4000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                for (DocumentSnapshot doc : snap.getDocuments()) {
+                    OdRequest req = doc.toObject(OdRequest.class);
+                    if (req != null) {
+                        if (req.getId() == null)
+                            req.setId(doc.getId());
+                        ensureWorkflowTimeline(req);
+                        boolean isBonafide = req.isRequiresPrincipalApproval() || req.isBonafide();
+                        if (isBonafide) {
+                            boolean isPendingPrin = req.getStatus() == OdStatus.PENDING_PRINCIPAL
+                                    || "PRINCIPAL".equalsIgnoreCase(req.getCurrentStage())
+                                    || "bsanjaygandhi".equalsIgnoreCase(req.getAssignedReviewerId());
+                            boolean hasPrinDecision = req.getPrincipalDecision() != null;
+                            boolean isApproved = req.getStatus() == OdStatus.APPROVED;
+                            boolean isRejected = req.getStatus() == OdStatus.REJECTED;
+                            if (isPendingPrin || hasPrinDecision || isApproved || isRejected) {
+                                map.put(req.getId(), req);
+                                memoryRequests.put(req.getId(), req);
+                            }
+                        }
                     }
                 }
+                lastRemoteFetchTime = System.currentTimeMillis();
+            } catch (Exception ex) {
+                System.err.println(
+                        "Firestore read failed for Principal requests (serving in-memory cache): " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println(
-                    "Firestore read failed for Principal requests (serving in-memory cache): " + ex.getMessage());
         }
 
         List<OdRequest> list = new ArrayList<>(map.values());

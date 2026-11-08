@@ -1,0 +1,21 @@
+# ==============================================================================
+# EPOCH Backend - Render Blueprint Configuration (Infrastructure-as-Code)
+# ==============================================================================
+services:
+  - type: web
+    name: epoch-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/auth/public-info
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: EPOCH_JWT_SECRET
+        generateValue: true
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: EPOCH_CORS_ALLOWED_ORIGINS
+        sync: false
+

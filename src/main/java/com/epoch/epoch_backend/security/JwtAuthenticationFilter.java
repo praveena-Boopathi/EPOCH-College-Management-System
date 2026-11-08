@@ -27,6 +27,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
+        // Clear any stale authentication from a previous request on this pooled thread
+        SecurityContextHolder.clearContext();
+
         String token = resolveToken(request);
         if (StringUtils.hasText(token) && tokenProvider.validateToken(token)) {
             UserProfile profile = tokenProvider.getUserProfileFromToken(token);

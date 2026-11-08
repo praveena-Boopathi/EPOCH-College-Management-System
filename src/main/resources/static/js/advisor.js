@@ -6,6 +6,45 @@ const AdvisorPortal = {
   requests: [],
   currentUser: null,
   activeRequestId: null,
+  activeCategory: null,
+  metricSearchQuery: "",
+  metricCategoryFilter: "ALL",
+  metricStatusFilter: "ALL",
+
+  isPending(r) {
+    if (!r) return false;
+    return r.status === "PENDING_ADVISOR" || (r.currentStage === "ADVISOR" && r.status !== "REJECTED");
+  },
+
+  isApproved(r) {
+    if (!r) return false;
+    return r.advisorApproved === true ||
+           (r.advisorDecision && r.advisorDecision.status === "APPROVED") ||
+           (r.timeline && r.timeline.some(e => e.eventType === "ADVISOR_APPROVAL" || (e.action === "APPROVED" && e.actorRole === "CLASS_ADVISOR")));
+  },
+
+  isRejected(r) {
+    if (!r) return false;
+    return (r.advisorDecision && r.advisorDecision.status === "REJECTED") ||
+           (r.status === "REJECTED" && (r.currentStage === "ADVISOR" || r.rejectedByRole === "CLASS_ADVISOR" || (r.rejectedBy && r.rejectedBy.toLowerCase().includes("advisor")) || (r.timeline && r.timeline.some(e => e.eventType === "ADVISOR_REJECTION"))));
+  },
+
+  formatStatusBadge(status) {
+    switch (status) {
+      case "PENDING_ADVISOR":
+        return '<span class="badge-tag badge-warning">⏳ Awaiting Advisor</span>';
+      case "PENDING_HOD":
+        return '<span class="badge-tag badge-info">⏳ Awaiting HOD</span>';
+      case "PENDING_PRINCIPAL":
+        return '<span class="badge-tag badge-info">⏳ Awaiting Principal</span>';
+      case "APPROVED":
+        return '<span class="badge-tag badge-approved">✅ Approved</span>';
+      case "REJECTED":
+        return '<span class="badge-tag badge-rejected">❌ Rejected</span>';
+      default:
+        return `<span class="badge-tag badge-secondary">${this.escape(status || "UNKNOWN")}</span>`;
+    }
+  },
 
   async init(user) {
     this.currentUser = user;
@@ -26,7 +65,7 @@ const AdvisorPortal = {
     try {
       const res = await Auth.fetchWithAuth("/api/od/advisor");
       if (res.ok) {
-        this.requests = await res.json();
+        this.requests = (await Auth.parseResponse(res)).data || [];
         this.renderRequests();
         return;
       }
@@ -42,23 +81,27 @@ const AdvisorPortal = {
 
   renderRequests() {
     const tbody = document.getElementById("advisorRequestsTbody");
-    if (!tbody) return;
 
-    let pending = 0, approved = 0, rejected = 0;
-    this.requests.forEach(r => {
-      if (r.status === "PENDING_ADVISOR") pending++;
-      else if (r.advisorApproved === true || (r.advisorDecision && r.advisorDecision.status === "APPROVED")) approved++;
-      else if (r.status === "REJECTED") rejected++;
-    });
+    const pendingList = (this.requests || []).filter(r => this.isPending(r));
+    const approvedList = (this.requests || []).filter(r => this.isApproved(r));
+    const rejectedList = (this.requests || []).filter(r => this.isRejected(r));
+    const totalList = this.requests || [];
 
     const elP = document.getElementById("advMetricPending");
     const elA = document.getElementById("advMetricApproved");
     const elR = document.getElementById("advMetricRejected");
     const elT = document.getElementById("advMetricTotal");
-    if (elP) elP.textContent = pending;
-    if (elA) elA.textContent = approved;
-    if (elR) elR.textContent = rejected;
-    if (elT) elT.textContent = this.requests.length;
+    if (elP) elP.textContent = pendingList.length;
+    if (elA) elA.textContent = approvedList.length;
+    if (elR) elR.textContent = rejectedList.length;
+    if (elT) elT.textContent = totalList.length;
+
+    // Refresh interactive category details view if currently active
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+
+    if (!tbody) return;
 
     if (this.requests.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:28px; color:#64748b;">📥 No OD applications pending for Section ${this.currentUser.section || 'CSE-A'}.</td></tr>`;
@@ -110,6 +153,314 @@ const AdvisorPortal = {
           <td>${actionBtn}</td>
         </tr>
       `;
+    }).join("");
+  },
+
+  showCategoryDetails(category) {
+    this.activeCategory = category;
+
+    // Highlight active card
+    ["advCardPending", "advCardApproved", "advCardRejected", "advCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const activeMap = {
+      PENDING: "advCardPending",
+      APPROVED: "advCardApproved",
+      REJECTED: "advCardRejected",
+      TOTAL: "advCardTotal"
+    };
+    const activeCard = document.getElementById(activeMap[category]);
+    if (activeCard) activeCard.classList.add("active-card");
+
+    const section = document.getElementById("advisorMetricDetailsSection");
+    if (section) section.style.display = "block";
+
+    this.renderCategoryDetails(category);
+
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  },
+
+  closeCategoryDetails() {
+    this.activeCategory = null;
+
+    ["advCardPending", "advCardApproved", "advCardRejected", "advCardTotal"].forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.classList.remove("active-card");
+    });
+
+    const section = document.getElementById("advisorMetricDetailsSection");
+    if (section) section.style.display = "none";
+  },
+
+  onMetricSearchInput(val) {
+    this.metricSearchQuery = (val || "").trim().toLowerCase();
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricCategoryChange(val) {
+    this.metricCategoryFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  onMetricStatusChange(val) {
+    this.metricStatusFilter = val || "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  resetMetricFilters() {
+    this.metricSearchQuery = "";
+    this.metricCategoryFilter = "ALL";
+    this.metricStatusFilter = "ALL";
+    const sInput = document.getElementById("advisorMetricSearchInput");
+    const cFilter = document.getElementById("advisorMetricCategoryFilter");
+    const stFilter = document.getElementById("advisorMetricStatusFilter");
+    if (sInput) sInput.value = "";
+    if (cFilter) cFilter.value = "ALL";
+    if (stFilter) stFilter.value = "ALL";
+    if (this.activeCategory) {
+      this.renderCategoryDetails(this.activeCategory);
+    }
+  },
+
+  renderCategoryDetails(category) {
+    const iconEl = document.getElementById("advisorMetricDetailsIcon");
+    const titleEl = document.getElementById("advisorMetricDetailsTitle");
+    const badgeEl = document.getElementById("advisorMetricDetailsBadge");
+    const subtextEl = document.getElementById("advisorMetricDetailsSubtext");
+    const thead = document.getElementById("advisorMetricDetailsThead");
+    const tbody = document.getElementById("advisorMetricDetailsTbody");
+
+    if (!thead || !tbody) return;
+
+    const mySection = (this.currentUser && this.currentUser.section) ? this.currentUser.section : "CSE-A";
+
+    let baseList = [];
+    if (category === "PENDING") {
+      baseList = (this.requests || []).filter(r => this.isPending(r));
+      if (iconEl) iconEl.textContent = "⏳";
+      if (titleEl) titleEl.textContent = "Pending My Review";
+      if (subtextEl) subtextEl.textContent = `Requests from Section ${this.escape(mySection)} awaiting your authorized review and digital endorsement.`;
+    } else if (category === "APPROVED") {
+      baseList = (this.requests || []).filter(r => this.isApproved(r));
+      if (iconEl) iconEl.textContent = "✅";
+      if (titleEl) titleEl.textContent = "Approved & Forwarded Requests";
+      if (subtextEl) subtextEl.textContent = `Requests from Section ${this.escape(mySection)} endorsed by you and forwarded to Head of Department / Principal.`;
+    } else if (category === "REJECTED") {
+      baseList = (this.requests || []).filter(r => this.isRejected(r));
+      if (iconEl) iconEl.textContent = "❌";
+      if (titleEl) titleEl.textContent = "Rejected Requests with Reason";
+      if (subtextEl) subtextEl.textContent = `Section ${this.escape(mySection)} requests rejected during Class Advisor verification with formal rejection remarks.`;
+    } else {
+      category = "TOTAL";
+      baseList = this.requests || [];
+      if (iconEl) iconEl.textContent = "📋";
+      if (titleEl) titleEl.textContent = `Total Section Requests (Section ${this.escape(mySection)})`;
+      if (subtextEl) subtextEl.textContent = `All submitted requests originating from students enrolled in Section ${this.escape(mySection)}.`;
+    }
+
+    // Apply Filters
+    let filtered = baseList.filter(r => {
+      if (this.metricSearchQuery) {
+        const q = this.metricSearchQuery;
+        const text = [
+          r.id,
+          r.studentName,
+          r.regNo,
+          r.department,
+          r.section,
+          r.odType,
+          r.category,
+          r.eventTitle,
+          r.reason,
+          r.purpose,
+          r.organizer,
+          r.venue
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      if (this.metricCategoryFilter && this.metricCategoryFilter !== "ALL") {
+        const cat = (r.odType || r.category || "").toLowerCase();
+        if (!cat.includes(this.metricCategoryFilter.toLowerCase())) return false;
+      }
+      if (this.metricStatusFilter && this.metricStatusFilter !== "ALL") {
+        if (r.status !== this.metricStatusFilter) return false;
+      }
+      return true;
+    });
+
+    if (badgeEl) {
+      let bClass = "badge-tag badge-info";
+      if (category === "PENDING") bClass = "badge-tag badge-warning";
+      else if (category === "APPROVED") bClass = "badge-tag badge-approved";
+      else if (category === "REJECTED") bClass = "badge-tag badge-rejected";
+      badgeEl.className = bClass;
+      badgeEl.textContent = `${filtered.length} of ${baseList.length} Records`;
+    }
+
+    const isRejectedCategory = (category === "REJECTED");
+
+    if (isRejectedCategory) {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event Title / Purpose</th>
+          <th>Applicable Dates</th>
+          <th>Rejection Reason & Remarks</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th>Reference ID</th>
+          <th>Student Details</th>
+          <th>Request Category</th>
+          <th>Event Title / Purpose</th>
+          <th>Dates & Submitted</th>
+          <th>Current Stage / Approver</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      const msg = baseList.length === 0
+        ? `No requests recorded in the "${category}" category for Section ${this.escape(mySection)}.`
+        : "No requests match your current search and filter criteria.";
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:32px; color:#64748b;">ℹ️ ${msg}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(r => {
+      const submittedDate = r.createdAt ? (r.createdAt.includes("T") ? r.createdAt.split("T")[0] : r.createdAt.substring(0, 10)) : (r.submittedDate || r.submittedAt || "—");
+      const dateRange = `${this.escape(r.fromDate || r.startDate || "")} ${r.toDate && r.toDate !== r.fromDate ? ' to ' + this.escape(r.toDate) : ''}`.trim() || "Single Day";
+      const isPendingThis = this.isPending(r);
+
+      const studentCell = `
+        <div>
+          <strong style="color:var(--primary); font-size:13px;">${this.escape(r.studentName || 'Student')}</strong>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Reg: <strong>${this.escape(r.regNo || '—')}</strong></div>
+          <div style="display:flex; gap:4px; align-items:center; margin-top:3px; flex-wrap:wrap;">
+            <span class="badge-tag badge-secondary" style="font-size:10px;">${this.escape(r.department || 'CSE')}</span>
+            <span class="badge-tag badge-section" style="font-size:10px;">${this.escape(r.section || mySection)}</span>
+            ${r.year ? `<span class="badge-tag badge-secondary" style="font-size:10px;">Year ${this.escape(r.year)}</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      const purposeText = r.eventTitle || r.reason || r.purpose || r.eventDetails || "Institutional Request";
+      const purposeCell = `
+        <div style="max-width:260px;">
+          <div style="font-weight:600; color:#1e293b; font-size:12px; line-height:1.4;">${this.escape(purposeText)}</div>
+          ${r.organizer ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Org: ${this.escape(r.organizer)}</div>` : ''}
+        </div>
+      `;
+
+      const statusBadge = this.formatStatusBadge(r.status);
+
+      let actionButtons = `
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-sm btn-secondary" onclick="App.viewRequestDetails('${r.id}')" title="View Full Request, Documents & Timeline" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            🔍 View Details
+          </button>
+      `;
+      if (isPendingThis) {
+        actionButtons += `
+          <button class="btn btn-sm btn-primary" onclick="AdvisorPortal.openReviewModal('${r.id}')" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            Review & Action
+          </button>
+        `;
+      } else if (r.status === "APPROVED") {
+        actionButtons += `
+          <button class="btn btn-sm btn-success" onclick="App.downloadPdf('${r.id}')" title="Download Official Endorsed PDF" style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; font-size:11px;">
+            📄 PDF
+          </button>
+        `;
+      }
+      actionButtons += `</div>`;
+
+      if (isRejectedCategory) {
+        const rejReason = r.rejectionReason || (r.advisorDecision && r.advisorDecision.comments) || (r.hodDecision && r.hodDecision.comments) || "Rejection remarks not specified";
+        const rejBy = r.rejectedBy || (r.advisorDecision && r.advisorDecision.by) || "Class Advisor";
+        const rejAt = r.rejectedAt || (r.advisorDecision && r.advisorDecision.timestamp) || "—";
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag badge-teal" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td style="font-size:12px;">${this.escape(dateRange)}</td>
+            <td>
+              <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:6px 10px; color:#991b1b; font-size:11.5px; max-width:280px;">
+                <div style="font-weight:700;">❌ ${this.escape(rejReason)}</div>
+                <div style="font-size:10.5px; color:#b91c1c; margin-top:3px;">Rejected by: <strong>${this.escape(rejBy)}</strong> (${this.escape(rejAt)})</div>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      } else {
+        let stageInfoHtml = '';
+        if (r.status === "PENDING_ADVISOR") {
+          stageInfoHtml = `<div style="font-weight:700; color:var(--warning); font-size:11.5px;">⏳ Awaiting Advisor Review</div><div style="font-size:10.5px; color:#64748b;">Assigned to Section Advisor</div>`;
+        } else if (r.status === "PENDING_HOD") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ Advisor Endorsed</span>
+              <div style="font-size:11px; color:#64748b;">Forwarded to HOD</div>
+            </div>
+          `;
+        } else if (r.status === "PENDING_PRINCIPAL") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ HOD Endorsed</span>
+              <div style="font-size:11px; color:#64748b;">Forwarded to Principal</div>
+            </div>
+          `;
+        } else if (r.status === "APPROVED") {
+          stageInfoHtml = `
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✅ Fully Sanctioned</span>
+              <div style="font-size:10px; color:#16a34a;">Digital Signatures Applied</div>
+            </div>
+          `;
+        } else if (r.status === "REJECTED") {
+          stageInfoHtml = `<span class="badge-tag badge-rejected" style="font-size:10.5px;">❌ Halted</span>`;
+        } else {
+          stageInfoHtml = `<span class="badge-tag badge-secondary" style="font-size:10.5px;">${this.escape(r.currentStage || 'PROCESSING')}</span>`;
+        }
+
+        return `
+          <tr>
+            <td><span class="ref-badge">${r.id}</span></td>
+            <td>${studentCell}</td>
+            <td><span class="badge-tag badge-teal" style="font-size:11px;">${this.escape(r.odType || 'Request')}</span></td>
+            <td>${purposeCell}</td>
+            <td>
+              <div style="font-size:12px; font-weight:600; color:#334155;">${this.escape(dateRange)}</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:2px;">📅 Submitted: ${this.escape(submittedDate)}</div>
+            </td>
+            <td>${stageInfoHtml}</td>
+            <td>${statusBadge}</td>
+            <td>${actionButtons}</td>
+          </tr>
+        `;
+      }
     }).join("");
   },
 

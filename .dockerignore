@@ -1,0 +1,14 @@
+.git
+.gradle
+build
+bin
+scratch
+node_modules
+*.log
+*.tmp
+*.bak
+*.bat
+*.ps1
+*firebase-service-account*.json
+!*firebase-service-account*.example.json
+

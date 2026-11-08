@@ -4,6 +4,49 @@
 const Auth = {
   TOKEN_KEY: "epoch_auth_token",
   USER_KEY: "epoch_user_profile",
+  API_BASE_KEY: "epoch_api_base",
+
+  /**
+   * Resolve the configured backend base URL.
+   * Priority:
+   *  1. window.EPOCH_API_BASE (injected by runtime config or index.html)
+   *  2. localStorage "epoch_api_base" (dynamic user / admin setting)
+   *  3. "" (relative URL, fallback for same-origin / reverse-proxied hosting)
+   */
+  getApiBase() {
+    if (typeof window !== "undefined" && window.EPOCH_API_BASE) {
+      return String(window.EPOCH_API_BASE).replace(/\/+$/, "");
+    }
+    try {
+      const stored = localStorage.getItem(this.API_BASE_KEY);
+      if (stored) return stored.replace(/\/+$/, "");
+    } catch (e) {}
+    return "";
+  },
+
+  setApiBase(url) {
+    try {
+      if (url && typeof url === "string" && url.trim()) {
+        localStorage.setItem(this.API_BASE_KEY, url.trim().replace(/\/+$/, ""));
+      } else {
+        localStorage.removeItem(this.API_BASE_KEY);
+      }
+    } catch (e) {}
+  },
+
+  /**
+   * Prepend the backend API base URL to a given endpoint path.
+   * If the path is already an absolute HTTP/HTTPS URL, returns it unmodified.
+   */
+  apiUrl(path) {
+    if (!path) return "";
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return path;
+    }
+    const base = this.getApiBase();
+    const cleanPath = path.startsWith("/") ? path : "/" + path;
+    return base ? base + cleanPath : cleanPath;
+  },
 
   getToken() {
     return localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
@@ -52,8 +95,10 @@ const Auth = {
 
     // Connect to Spring Boot REST API (/api/auth/login) backed by Firebase Firestore
     let data = null;
+    let res = null;
     try {
-      const res = await fetch("/api/auth/login", {
+      const loginUrl = this.apiUrl("/api/auth/login");
+      res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,39 +106,20 @@ const Auth = {
           password: cleanPass
         })
       });
+    } catch (netErr) {
+      console.warn("Network error during login connection:", netErr);
+    }
 
+    if (res) {
       if (res.ok) {
         data = await res.json();
       } else {
         const errData = await res.json().catch(() => ({}));
-        if (window.DemoStore && (res.status >= 500 || (errData.error && errData.error.includes("Quota exceeded")))) {
-          console.warn("Backend login issue, falling back to DemoStore:", errData.error);
-        } else {
-          throw new Error(errData.error || "Authentication failed. Check your registration number and password.");
-        }
+        // If authentication genuinely failed, surface the exact error without fake demo fallback
+        throw new Error(errData.error || "Authentication failed. Check your registration number and password.");
       }
-    } catch (netErr) {
-      if (!window.DemoStore) throw netErr;
-      console.warn("Network error during login, falling back to DemoStore:", netErr);
-    }
-
-    if (!data && window.DemoStore) {
-      const u = DemoStore.getUserProfile(cleanId);
-      if (u) {
-        data = {
-          token: "demo-jwt-token-" + u.identifier + "-" + Date.now(),
-          identifier: u.identifier,
-          name: u.name,
-          role: u.role,
-          section: u.section,
-          email: u.email,
-          department: u.dept || u.department || "Computer Science & Engineering",
-          academicYear: u.academicYear || (u.role === "STUDENT" ? "IV Year B.E." : ""),
-          bio: u.bio || ""
-        };
-      } else {
-        throw new Error("Authentication failed. Account not found in institutional directory.");
-      }
+    } else {
+      throw new Error("Unable to connect to authentication server. Please check your network connection.");
     }
 
     // Role verification: ensure authenticated role matches the selected portal
@@ -112,6 +138,8 @@ const Auth = {
     // Establish authorized session (never storing passwords)
     this.setSession(data.token, {
       identifier: data.identifier,
+      id: data.identifier,
+      regNo: data.identifier,
       name: data.name,
       role: data.role,
       section: data.section,
@@ -136,20 +164,83 @@ const Auth = {
   },
 
   async fetchWithAuth(url, options = {}) {
+    const fullUrl = this.apiUrl(url);
     const token = this.getToken();
-    const headers = options.headers || {};
+    const headers = Object.assign({}, options.headers || {});
     if (token) {
       headers["Authorization"] = "Bearer " + token;
     }
-    options.headers = headers;
+    const requestOptions = Object.assign({}, options, { headers });
 
-    const res = await fetch(url, options);
+    const res = await fetch(fullUrl, requestOptions);
     if (res.status === 401) {
+      console.warn(`[Auth] 401 Unauthorized for ${url}`);
       this.clearSession();
-      window.location.reload();
+      if (typeof App !== "undefined" && App.checkSession) {
+        App.checkSession();
+      } else {
+        window.location.reload();
+      }
       throw new Error("Session expired. Please sign in again.");
     }
     return res;
+  },
+
+  /**
+   * Safely parse a fetch Response object without crashing on empty bodies,
+   * non-JSON payloads, or HTML error pages.
+   */
+  async parseResponse(res) {
+    if (!res) {
+      return { ok: false, status: 0, data: null, error: "No response received from server." };
+    }
+
+    let rawText = "";
+    try {
+      rawText = await res.text();
+    } catch (readErr) {
+      console.error("[Auth.parseResponse] Failed to read response stream:", readErr);
+      return {
+        ok: false,
+        status: res.status || 0,
+        data: null,
+        error: "Network stream interrupted: " + (readErr.message || "Failed to read server response")
+      };
+    }
+
+    if (!rawText || !rawText.trim()) {
+      if (res.ok) {
+        return { ok: true, status: res.status, data: {}, error: null };
+      }
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        error: `Server returned HTTP ${res.status} with an empty response.`
+      };
+    }
+
+    try {
+      const data = JSON.parse(rawText);
+      if (res.ok) {
+        return { ok: true, status: res.status, data: data, error: null };
+      }
+      const errMsg = (data && (data.error || data.message || data.details)) || `Server returned error (${res.status})`;
+      return { ok: false, status: res.status, data: data, error: String(errMsg) };
+    } catch (jsonErr) {
+      console.warn("[Auth.parseResponse] Non-JSON response received:", rawText.slice(0, 250));
+      if (res.ok) {
+        return { ok: true, status: res.status, data: rawText, error: null };
+      }
+      let cleanText = rawText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      if (cleanText.length > 250) cleanText = cleanText.substring(0, 250) + "...";
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        error: cleanText || `Server error (${res.status} ${res.statusText || ""})`.trim()
+      };
+    }
   },
 
   logout() {

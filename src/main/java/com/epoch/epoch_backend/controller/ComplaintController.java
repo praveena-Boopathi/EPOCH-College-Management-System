@@ -29,6 +29,20 @@ public class ComplaintController {
         this.pdfService = pdfService;
     }
 
+    private Map<String, Object> errorBody(String msg) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("error", msg != null && !msg.trim().isEmpty() ? msg : "An unexpected error occurred");
+        return map;
+    }
+
+    private Map<String, Object> errorBody(Exception ex) {
+        String msg = ex != null ? ex.getMessage() : null;
+        if (msg == null || msg.trim().isEmpty()) {
+            msg = ex != null ? ex.getClass().getSimpleName() : "An unexpected error occurred";
+        }
+        return errorBody(msg);
+    }
+
     private UserProfile getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof UserProfile p) {
@@ -42,12 +56,12 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only students can submit complaints"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Only students can submit complaints"));
             }
             StudentComplaint created = complaintService.submitComplaint(user.getIdentifier(), complaint);
             return ResponseEntity.ok(created);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -56,12 +70,12 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             List<StudentComplaint> list = complaintService.getStudentComplaints(user.getIdentifier());
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -70,12 +84,12 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied. Only Principal can view student complaints."));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied. Only Principal can view student complaints."));
             }
             List<StudentComplaint> list = complaintService.getAllComplaintsForPrincipal();
             return ResponseEntity.ok(list);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -84,16 +98,16 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             StudentComplaint cmp = complaintService.getComplaintById(id);
-            if (cmp == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Complaint not found"));
+            if (cmp == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Complaint not found"));
             if (user.getRole() == UserRole.STUDENT && !cmp.getRegNo().equals(user.getIdentifier())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             if (user.getRole() != UserRole.STUDENT && user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied"));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             return ResponseEntity.ok(cmp);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody(ex));
         }
     }
 
@@ -102,7 +116,7 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             if (user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access denied. Only Principal can respond to complaints."));
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied. Only Principal can respond to complaints."));
             }
             String statusStr = body.getOrDefault("status", "RESOLVED");
             ComplaintStatus status = ComplaintStatus.valueOf(statusStr);
@@ -110,7 +124,7 @@ public class ComplaintController {
             StudentComplaint updated = complaintService.principalRespond(id, status, response);
             return ResponseEntity.ok(updated);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 
@@ -119,14 +133,14 @@ public class ComplaintController {
         try {
             UserProfile user = getCurrentUser();
             StudentComplaint cmp = complaintService.getComplaintById(id);
-            if (cmp == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Complaint not found");
+            if (cmp == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Complaint not found"));
 
             // Authorization: Only the student themselves or the Principal can download
             if (user.getRole() == UserRole.STUDENT && (cmp.getRegNo() == null || !cmp.getRegNo().trim().equalsIgnoreCase(user.getIdentifier().trim()))) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
             if (user.getRole() != UserRole.STUDENT && user.getRole() != UserRole.PRINCIPAL) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
             }
 
             byte[] pdfBytes = pdfService.generateComplaintPdf(cmp);
@@ -135,8 +149,7 @@ public class ComplaintController {
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
         } catch (Exception ex) {
-            ex.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage() != null ? ex.getMessage() : "PDF generation failed"));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
         }
     }
 }

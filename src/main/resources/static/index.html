@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <!-- Runtime Backend API Configuration: leave empty ("") for same-origin / relative /api, or set to your deployed backend URL (e.g. "https://epoch-backend.onrender.com") -->
+  <script>
+    window.EPOCH_API_BASE = window.EPOCH_API_BASE || "";
+  </script>
 </head>
 <body>
 
@@ -727,25 +731,103 @@
 
           <!-- Advisor Metrics -->
           <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-label">⏳ Pending My Review</div>
+            <div id="advCardPending" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting your advisor action">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="advMetricPending" class="metric-value" style="color:var(--warning);">0</div>
               <div class="metric-subtext">Section student submissions</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">✅ Approved & Forwarded</div>
+            <div id="advCardApproved" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests approved by you and forwarded to HOD">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="advMetricApproved" class="metric-value" style="color:var(--success);">0</div>
               <div class="metric-subtext">Advanced to HOD</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">❌ Rejected with Reason</div>
+            <div id="advCardRejected" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by you with audit reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="advMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
               <div class="metric-subtext">Halted with audit log</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">👥 Total Section Requests</div>
+            <div id="advCardTotal" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all requests belonging to your assigned section">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">👥 Total Section Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="advMetricTotal" class="metric-value">0</div>
               <div class="metric-subtext">Strict section isolation</div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for Class Advisor -->
+          <div id="advisorMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="advisorMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="advisorMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="advisorMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="advisorMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Requests from your assigned section awaiting your authorized review and digital endorsement.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="AdvisorPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="advisorMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, request ID, event..." oninput="AdvisorPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="advisorMetricCategoryFilter" class="form-control" onchange="AdvisorPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Symposium / Conference">Symposium / Conference</option>
+                    <option value="Hackathon">Hackathon</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Paper Presentation">Paper Presentation</option>
+                    <option value="Project Competition">Project Competition</option>
+                    <option value="Sports / Cultural Event">Sports / Cultural Event</option>
+                    <option value="Day Scholar Leave Letter">Day Scholar Leave</option>
+                    <option value="Hosteller Leave Letter">Hosteller Leave</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="advisorMetricStatusFilter" class="form-control" onchange="AdvisorPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_ADVISOR">Pending Advisor</option>
+                    <option value="PENDING_HOD">Pending HOD</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="AdvisorPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="advisorMetricDetailsThead"></thead>
+                  <tbody id="advisorMetricDetailsTbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -841,25 +923,102 @@
 
           <!-- HOD Metrics -->
           <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-label">⏳ Awaiting HOD Review</div>
+            <div id="hodCardPending" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting HOD review">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="hodMetricPending" class="metric-value" style="color:var(--warning);">0</div>
               <div class="metric-subtext">Approved by Class Advisor</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">✅ HOD Approved</div>
+            <div id="hodCardApproved" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests approved by HOD">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="hodMetricApproved" class="metric-value" style="color:var(--success);">0</div>
               <div class="metric-subtext">Sanctioned or sent to Principal</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">❌ HOD Rejected</div>
+            <div id="hodCardRejected" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by HOD with reason">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="hodMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
-              <div class="metric-subtext">Halted with reason</div>
+              <div class="metric-subtext">Halted with audit log</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">📊 Department Total</div>
+            <div id="hodCardTotal" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all requests within HOD's authorized department scope">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">📊 Total Department Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
               <div id="hodMetricTotal" class="metric-value">0</div>
               <div class="metric-subtext">All CSE Sections</div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for HOD -->
+          <div id="hodMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="hodMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="hodMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="hodMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="hodMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Department requests endorsed by Class Advisors awaiting your official executive decision.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="HodPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="hodMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, request ID, event..." oninput="HodPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="hodMetricCategoryFilter" class="form-control" onchange="HodPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Symposium / Conference">Symposium / Conference</option>
+                    <option value="Hackathon">Hackathon</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Paper Presentation">Paper Presentation</option>
+                    <option value="Project Competition">Project Competition</option>
+                    <option value="Sports / Cultural Event">Sports / Cultural Event</option>
+                    <option value="Day Scholar Leave Letter">Day Scholar Leave</option>
+                    <option value="Hosteller Leave Letter">Hosteller Leave</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="hodMetricStatusFilter" class="form-control" onchange="HodPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_HOD">Pending HOD</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="HodPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="hodMetricDetailsThead"></thead>
+                  <tbody id="hodMetricDetailsTbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -954,25 +1113,93 @@
 
           <!-- Principal Metrics -->
           <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-label">🚨 Complaints Pending</div>
-              <div id="prinMetricComplaintsPending" class="metric-value" style="color:var(--danger);">0</div>
-              <div class="metric-subtext">Direct confidential submissions</div>
+            <div id="prinCardPending" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all Bonafide Certificate requests currently awaiting Principal review">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricPending" class="metric-value" style="color:var(--warning);">0</div>
+              <div class="metric-subtext">Bonafide Certificate applications <span id="prinMetricOdPending" style="display:none;">0</span></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">✅ Complaints Resolved</div>
-              <div id="prinMetricComplaintsResolved" class="metric-value" style="color:var(--success);">0</div>
-              <div class="metric-subtext">Addressed by Principal</div>
+            <div id="prinCardApproved" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests officially approved & sanctioned by Principal">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricApproved" class="metric-value" style="color:var(--success);">0</div>
+              <div class="metric-subtext">Sanctioned & completed with seal <span id="prinMetricComplaintsResolved" style="display:none;">0</span></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">📋 Bonafide Approvals Awaiting</div>
-              <div id="prinMetricOdPending" class="metric-value" style="color:var(--warning);">0</div>
-              <div class="metric-subtext">Bonafide Certificates</div>
+            <div id="prinCardRejected" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by Principal with audit reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
+              <div class="metric-subtext">Halted with audit log</div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label">🏛️ Total Complaints Logged</div>
-              <div id="prinMetricTotalComplaints" class="metric-value">0</div>
-              <div class="metric-subtext">Direct confidential channel</div>
+            <div id="prinCardTotal" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all institutional requests in Principal's scope (Bonafides & Complaints)">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">🏛️ Total Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricTotal" class="metric-value">0</div>
+              <div class="metric-subtext">Bonafides & Direct Complaints <span id="prinMetricComplaintsPending" style="display:none;">0</span><span id="prinMetricTotalComplaints" style="display:none;">0</span></div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for Principal -->
+          <div id="principalMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="principalMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="principalMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="principalMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="principalMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Bonafide Certificate applications awaiting Principal final executive sanction.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="PrincipalPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="principalMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, ID, subject, purpose..." oninput="PrincipalPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="principalMetricCategoryFilter" class="form-control" onchange="PrincipalPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="COMPLAINT">Student Complaints</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="principalMetricStatusFilter" class="form-control" onchange="PrincipalPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved / Resolved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="PrincipalPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="principalMetricDetailsThead"></thead>
+                  <tbody id="principalMetricDetailsTbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -2123,7 +2350,7 @@
         <button class="btn btn-secondary" onclick="StudentPortal.closeBonafideModal()">Cancel</button>
         <div style="display:flex; gap:8px;">
           <button type="button" class="btn btn-secondary" onclick="StudentPortal.previewBonafideApplication()">👁️ Preview Application</button>
-          <button class="btn btn-primary" onclick="StudentPortal.submitBonafide()">Request Certificate</button>
+          <button id="bonafideSubmitBtn" class="btn btn-primary" onclick="StudentPortal.submitBonafide()">Request Certificate</button>
         </div>
       </div>
     </div>

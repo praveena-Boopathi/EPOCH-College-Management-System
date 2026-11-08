@@ -1,0 +1,2926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPOCH | Institutional Academic Operations Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Runtime Backend API Configuration: leave empty ("") for same-origin / relative /api, or set to your deployed backend URL (e.g. "https://epoch-backend.onrender.com") -->
+  <script>
+    window.EPOCH_API_BASE = window.EPOCH_API_BASE || "";
+  </script>
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ==================== 1. GENERIC LOGIN VIEW ==================== -->
+  <div id="loginView" class="login-wrapper">
+    <!-- Ambient floating glowing shapes -->
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+
+    <div class="login-card login-card-wide">
+      
+      <!-- STEP A: Role Selection (First screen) -->
+      <div id="roleSelectStep">
+        <div class="login-brand">
+          <div class="login-icon-badge">🎓</div>
+          <h1>EPOCH</h1>
+          <p class="login-college-name">Gnanamani College of Technology (Autonomous)</p>
+          <div class="login-welcome-tag">Academic Operations & Workflow Portal</div>
+          <p class="login-welcome-msg">
+            Select your institutional role to continue to the authentication form. Selecting a role opens the dedicated login form and will never automatically sign you in.
+          </p>
+        </div>
+
+        <div class="role-selection-grid">
+          <div id="roleBtnStudent" class="role-select-card" onclick="App.selectRole('student')" role="button" tabindex="0">
+            <div class="role-card-icon">🎓</div>
+            <div class="role-card-body">
+              <div class="role-card-title">Student</div>
+              <div class="role-card-desc">Personal attendance tracking, OD & Leave applications, Bonafide requests, and direct grievances.</div>
+              <div class="role-card-cred-hint">🔑 Requires Registration Number & Password</div>
+            </div>
+            <div class="role-card-arrow">→</div>
+          </div>
+
+          <div id="roleBtnAdvisor" class="role-select-card" onclick="App.selectRole('advisor')" role="button" tabindex="0">
+            <div class="role-card-icon">👩‍🏫</div>
+            <div class="role-card-body">
+              <div class="role-card-title">Class Advisor</div>
+              <div class="role-card-desc">Section attendance monitoring, OD reviews, recommendation routing, and digital signature authorization.</div>
+              <div class="role-card-cred-hint">🔑 Requires Staff ID / Official Email & Password</div>
+            </div>
+            <div class="role-card-arrow">→</div>
+          </div>
+
+          <div id="roleBtnHod" class="role-select-card" onclick="App.selectRole('hod')" role="button" tabindex="0">
+            <div class="role-card-icon">🏛️</div>
+            <div class="role-card-body">
+              <div class="role-card-title">Head of Department (HOD)</div>
+              <div class="role-card-desc">Department-wide academic oversight, symposium endorsements, and faculty OD routing.</div>
+              <div class="role-card-cred-hint">🔑 Requires Staff ID / Official Email & Password</div>
+            </div>
+            <div class="role-card-arrow">→</div>
+          </div>
+
+          <div id="roleBtnPrincipal" class="role-select-card" onclick="App.selectRole('principal')" role="button" tabindex="0">
+            <div class="role-card-icon">👨‍💼</div>
+            <div class="role-card-body">
+              <div class="role-card-title">Principal</div>
+              <div class="role-card-desc">Executive institutional governance, confidential grievance redressal, and Bonafide certificate sanctions.</div>
+              <div class="role-card-cred-hint">🔑 Requires Official Institutional Email & Password</div>
+            </div>
+            <div class="role-card-arrow">→</div>
+          </div>
+        </div>
+
+        <div class="login-footer-notice">
+          <span>🛡️ Fictional Testing Sandbox • No Automatic Login • Credential Validation Required</span>
+        </div>
+      </div>
+
+      <!-- STEP B: Dedicated Login Form for Chosen Role -->
+      <div id="roleLoginFormStep" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <button type="button" id="loginBackBtn" class="btn btn-sm btn-secondary" onclick="App.backToRoleSelect()" style="display:flex; align-items:center; gap:6px;">
+            <span>← Back to Roles</span>
+          </button>
+          <span id="loginSelectedRoleBadge" class="badge-tag badge-teal">🎓 Student</span>
+        </div>
+
+        <div class="login-brand" style="margin-bottom:20px; text-align:left;">
+          <h2 id="loginRoleFormTitle" style="font-size:22px; font-weight:800; color:var(--primary); margin:0;">Student Sign-In</h2>
+          <p id="loginRoleFormSubtitle" style="font-size:12.5px; color:#64748b; margin-top:4px;">
+            Please enter your registration number and password to sign in.
+          </p>
+        </div>
+
+        <div id="loginErrorMsg" class="alert alert-danger" style="display:none; margin-bottom:16px;"></div>
+
+        <form id="roleLoginForm">
+          <div class="form-group" style="margin-bottom:14px;">
+            <label id="loginIdentifierLabel" for="loginIdentifier">Registration Number</label>
+            <input id="loginIdentifier" type="text" class="form-control" required placeholder="Enter your registration number" autocomplete="username">
+          </div>
+
+          <div class="form-group" style="margin-bottom:18px;">
+            <label for="loginPassword">Password</label>
+            <div class="password-input-wrapper">
+              <input id="loginPassword" type="password" class="form-control" required placeholder="Enter your password" autocomplete="current-password">
+              <button type="button" id="togglePasswordBtn" class="btn-toggle-password" onclick="App.togglePasswordVisibility()" aria-label="Show or hide password" title="Show/Hide Password">
+                👁️
+              </button>
+            </div>
+          </div>
+
+          <button id="loginSubmitBtn" type="submit" class="btn btn-primary btn-block btn-lg">
+            <span>Sign In to Portal</span>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </form>
+
+        <!-- Professional message below login button -->
+        <p id="loginAuthHint" class="login-auth-hint" style="text-align:center; margin-top:16px; margin-bottom:0; font-size:12.5px; color:#64748b; font-weight:500;">
+          Sign in with your registered credentials.
+        </p>
+
+        <!-- Fictional Demo Testing Credentials Reference (Hidden for Student) -->
+        <div id="demoTestingBox" class="demo-testing-box" style="display:none;">
+          <div class="demo-testing-header">
+            <span class="badge-tag badge-warning" style="font-size:10.5px;">🧪 Fictional Demo Accounts</span>
+            <span style="font-size:11px; color:#64748b; font-weight:500;">Isolated demo sandbox</span>
+          </div>
+          <p style="font-size:11.5px; color:#64748b; margin-top:6px; line-height:1.4;">
+            These are fictional testing accounts for demonstration. Click an account below to safely fill the test credentials into the form, then click <strong>Sign In to Portal</strong> to validate:
+          </p>
+          <div id="demoAccountsList" class="demo-accounts-list">
+            <!-- Dynamically populated per selected role -->
+          </div>
+        </div>
+
+        <div class="login-footer-notice" style="margin-top:18px;">
+          <span>🔒 EPOCH Institutional Academic Operations Portal</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== 2. MAIN APPLICATION PORTAL ==================== -->
+  <div id="appView" class="app-container" style="display:none;">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand-wrapper">
+          <div class="sidebar-logo-icon">🎓</div>
+          <div>
+            <div class="sidebar-brand">EPOCH</div>
+            <div class="sidebar-subbrand">Academic Operations</div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="sidebar-menu">
+        <li class="sidebar-item">
+          <a id="nav-dashboard" class="sidebar-link active" onclick="App.switchTab('dashboard')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            📊 Dashboard
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a id="nav-profile" class="sidebar-link" onclick="App.switchTab('profile')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            👤 My Profile
+          </a>
+        </li>
+        <li id="sidebarTrackingLink" class="sidebar-item" style="display:none;">
+          <a id="nav-track" class="sidebar-link" onclick="App.switchTab('track')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+            📋 Track My Requests
+          </a>
+        </li>
+        <li id="sidebarComplaintsLink" class="sidebar-item">
+          <a id="nav-complaints" class="sidebar-link" onclick="StudentPortal.openComplaintModal()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            🚨 Direct Grievances
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a id="nav-history" class="sidebar-link" onclick="App.switchTab('history')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            📜 Decision History
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a id="nav-messages" class="sidebar-link" onclick="App.switchTab('messages')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            💬 Messages
+            <span id="sidebarChatBadge" class="chat-unread-badge" style="display:none; margin-left:auto;">0</span>
+          </a>
+        </li>
+        <li class="sidebar-item">
+          <a id="nav-notifications" class="sidebar-link" onclick="App.switchTab('notifications')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            🔔 Notifications
+          </a>
+        </li>
+        <li id="sidebarAnnouncementsLink" class="sidebar-item">
+          <a id="nav-announcements" class="sidebar-link" onclick="App.switchTab('announcements')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+            📢 Announcements
+          </a>
+        </li>
+        <li id="sidebarVerifyLink" class="sidebar-item" style="display:none;">
+          <a id="nav-verify" class="sidebar-link" onclick="App.switchTab('verify')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            🛡️ Verify Payments
+          </a>
+        </li>
+        <li id="sidebarSignatureLink" class="sidebar-item">
+          <a id="nav-signature" class="sidebar-link" onclick="App.switchTab('dashboard')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            ✍️ Authorized Signature
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div><strong>Gnanamani College of Tech.</strong></div>
+        <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Autonomous • Affiliated to Anna Univ.</div>
+        <button id="sidebarSignOutBtn" class="btn btn-secondary btn-block btn-sm" onclick="Auth.logout()" style="margin-top:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px;">
+          <span>🚪 Sign Out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+      
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-title">
+          <span>🏛️</span>
+          <span>Gnanamani College of Technology • Academic Operations</span>
+        </div>
+
+        <!-- Fast User Search Shortcut -->
+        <div class="topbar-search-wrapper" style="position:relative; flex:1; max-width:320px; margin:0 16px;">
+          <div class="topbar-search-box" style="display:flex; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-radius:20px; padding:4px 12px; gap:8px;">
+            <svg width="13" height="13" fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="topbarUserSearchInput" placeholder="Quick message user..." style="border:none; background:transparent; outline:none; font-size:12px; width:100%; color:var(--text-main);" onfocus="ChatApp.handleTopbarSearchFocus()" oninput="ChatApp.handleTopbarSearchInput(this.value)">
+            <button id="topbarSearchClearBtn" style="display:none; border:none; background:transparent; cursor:pointer; color:#94a3b8; font-size:14px; padding:0; line-height:1;" onclick="ChatApp.clearTopbarSearch()">&times;</button>
+          </div>
+          <div id="topbarSearchResults" class="topbar-search-dropdown" style="display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; background:#ffffff; border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.06); max-height:360px; overflow-y:auto; z-index:1050; padding:6px;">
+            <!-- Populated dynamically with debounced user search results -->
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="btn btn-secondary btn-sm" onclick="App.switchTab('messages')" style="position:relative;" title="Messages / Chat">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span id="topbarChatBadge" class="badge-tag badge-teal" style="display:none; font-size:10px; padding:1px 5px;">0</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" onclick="App.switchTab('notifications')" style="position:relative;" title="Notifications">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span id="topbarNotifBadge" class="badge-tag badge-rejected" style="display:none; font-size:10px; padding:1px 5px;">0</span>
+          </button>
+
+          <div class="user-badge" onclick="App.switchTab('profile')" style="cursor:pointer;" title="Click to view and edit your profile">
+            <div id="topbarUserAvatar" class="user-avatar">U</div>
+            <div class="user-details">
+              <div id="topbarUserName" class="user-name">User Name</div>
+              <div id="topbarUserRole" class="user-meta">Role</div>
+            </div>
+          </div>
+
+          <button id="topbarSignOutBtn" class="btn btn-sm btn-secondary" onclick="Auth.logout()" style="display:flex; align-items:center; gap:6px;">
+            <span>🚪 Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Body Container -->
+      <main class="content-body">
+
+        <!-- Urgent College Announcements Banner -->
+        <div id="urgentAnnouncementsBanner" style="display:none;"></div>
+
+        <!-- ==================== 0. INTERACTIVE USER PROFILE VIEW ==================== -->
+        <section id="profileView" style="display:none;">
+          <div class="profile-card card">
+            <div class="profile-hero-cover">
+              <div class="profile-hero-pattern"></div>
+            </div>
+            <div class="profile-header-content">
+              <div class="profile-header-left">
+                <div class="profile-avatar-wrap" style="position:relative;">
+                  <div id="profAvatar" class="profile-avatar-large">S</div>
+                  <div class="profile-avatar-badge" title="Verified Institutional Account">✓</div>
+                  <button type="button" class="btn-avatar-upload" onclick="ProfileManager.triggerPhotoUpload()" title="Upload Profile Photo" style="position:absolute; bottom:2px; right:2px; width:30px; height:30px; border-radius:50%; background:var(--accent-teal, #0d9488); color:#ffffff; border:2px solid #ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:transform 0.2s, background 0.2s;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </button>
+                  <input type="file" id="profPhotoFileInput" accept="image/jpeg,image/png,image/webp,image/jpg" style="display:none;" onchange="ProfileManager.handleFileSelect(event)">
+                </div>
+                <div class="profile-title-block">
+                  <div class="profile-name-badge-row">
+                    <h2 id="profDisplayName" class="profile-name">Student Account</h2>
+                    <span id="profRoleBadge" class="badge-tag badge-teal">🎓 Student</span>
+                  </div>
+                  <p id="profSubtitle" class="profile-subtitle">Reg No: 620823104002 • IV Year B.E. • Department of Computer Science & Engineering</p>
+                </div>
+              </div>
+              <div class="profile-action-area" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-upload-photo" id="btnUploadPhotoDirect" onclick="ProfileManager.triggerPhotoUpload()" style="display:flex; align-items:center; gap:6px;">
+                  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Upload Profile Photo</span>
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="btnRemovePhotoDirect" onclick="ProfileManager.confirmRemovePhoto()" style="display:none; align-items:center; gap:6px; color:#ef4444; border:1px solid #fca5a5; background:#ffffff;">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>Remove Photo</span>
+                </button>
+                <button class="btn btn-primary btn-edit-profile" onclick="ProfileManager.openEditModal()">
+                  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="profile-body">
+              <div class="profile-details-grid">
+                <!-- Row 1: Core Identification -->
+                <div class="profile-info-box">
+                  <div class="profile-info-label">👤 Full Display Name</div>
+                  <div id="profCardName" class="profile-info-val">Student Account</div>
+                </div>
+                <div class="profile-info-box">
+                  <div class="profile-info-label">🆔 Registration Number</div>
+                  <div id="profCardId" class="profile-info-val">620823104002</div>
+                </div>
+                <div class="profile-info-box" id="profCustomBox1">
+                  <div class="profile-info-label" id="profCustomLabel1">🎓 Academic Year</div>
+                  <div id="profCustomVal1" class="profile-info-val">IV Year B.E.</div>
+                </div>
+
+                <!-- Row 2: Academic Department & Section -->
+                <div class="profile-info-box">
+                  <div class="profile-info-label">🏛️ Department</div>
+                  <div id="profCardDept" class="profile-info-val">Computer Science & Engineering</div>
+                </div>
+                <div class="profile-info-box">
+                  <div class="profile-info-label" id="profSecOrTitleLabel">📚 Section & Class</div>
+                  <div id="profCardSecOrTitle" class="profile-info-val">Section CSE-A</div>
+                </div>
+                <div class="profile-info-box">
+                  <div class="profile-info-label">📧 Institutional Email</div>
+                  <div id="profCardEmail" class="profile-info-val">student@epoch.edu</div>
+                </div>
+
+                <!-- Row 3: Communication & Advisory -->
+                <div class="profile-info-box">
+                  <div class="profile-info-label">📱 Contact Number</div>
+                  <div id="profCardContact" class="profile-info-val">+91 98765 00000</div>
+                </div>
+                <div class="profile-info-box" id="profCustomBox2">
+                  <div class="profile-info-label" id="profCustomLabel2">👨‍🏫 Class Advisor / Office</div>
+                  <div id="profCustomVal2" class="profile-info-val">Mrs. P. Arularasi (CSE-A)</div>
+                </div>
+                <div class="profile-info-box" id="profCustomBox3">
+                  <div class="profile-info-label">🛡️ Institutional Standing</div>
+                  <div id="profCardStatus" class="profile-info-val" style="color:var(--accent-teal); font-weight:700;">Regular Student • Autonomous</div>
+                </div>
+              </div>
+
+              <!-- Biography / Notes -->
+              <div class="profile-bio-box">
+                <div class="profile-info-label">📝 Profile Bio & Academic Notes</div>
+                <p id="profCardBio" class="profile-bio-text">
+                  Authorized student record enrolled in IV Year B.E. at Gnanamani College of Technology.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 1B. STUDENT REQUEST TRACKING VIEW ==================== -->
+        <section id="studentTrackingView" style="display:none;">
+          <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%); border-left:4px solid var(--accent-teal);">
+            <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:24px;">📋</span>
+                  <h2 style="font-size:22px; color:var(--primary); margin:0;">My Requests & Status Tracking</h2>
+                  <span class="badge-tag badge-teal">Live Multi-Stage Audit</span>
+                </div>
+                <p style="color:var(--text-muted); font-size:13px; margin:4px 0 0 0;">
+                  Consolidated tracking for all your submitted On-Duty (OD), Leave Applications, and Bonafide Certificates. Real-time verification of Class Advisor, HOD, and Principal approvals with digital signatures.
+                </p>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" onclick="App.switchTab('dashboard')">
+                  <span>← Back to Dashboard</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="StudentPortal.renderTrackingPage()">
+                  <span>🔄 Refresh Status</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tracking Metrics & Filter Pills -->
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-body" style="padding:16px 20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+                <!-- Filter Pills -->
+                <div class="filter-pill-group" style="display:inline-flex; background:#f1f5f9; padding:4px; border-radius:8px; gap:6px; flex-wrap:wrap;">
+                  <button type="button" id="trackTabAll" class="btn btn-sm btn-primary" onclick="StudentPortal.setTrackFilter('ALL')" style="padding:5px 14px; font-size:12px; border-radius:6px;">
+                    📁 All Requests <span id="trackBadgeAll" class="badge-tag badge-secondary" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="trackTabPending" class="btn btn-sm btn-secondary" onclick="StudentPortal.setTrackFilter('PENDING')" style="padding:5px 14px; font-size:12px; border-radius:6px;">
+                    ⏳ Pending Review <span id="trackBadgePending" class="badge-tag badge-warning" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="trackTabApproved" class="btn btn-sm btn-secondary" onclick="StudentPortal.setTrackFilter('APPROVED')" style="padding:5px 14px; font-size:12px; border-radius:6px;">
+                    ✅ Approved & Sanctioned <span id="trackBadgeApproved" class="badge-tag badge-approved" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="trackTabRejected" class="btn btn-sm btn-secondary" onclick="StudentPortal.setTrackFilter('REJECTED')" style="padding:5px 14px; font-size:12px; border-radius:6px;">
+                    ❌ Rejected <span id="trackBadgeRejected" class="badge-tag badge-rejected" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                </div>
+
+                <!-- Search Input -->
+                <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:260px; max-width:420px;">
+                  <div style="position:relative; width:100%;">
+                    <input type="text" id="trackSearchInput" class="form-control" placeholder="Search by Ref # (e.g. EPOCH-OD-...), Request Type..." style="padding:7px 12px; font-size:12px;" oninput="StudentPortal.onTrackSearch(this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Unified Request Tracking Table -->
+          <div class="card">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="card-title">📜 Unified Request Tracking Ledger</div>
+              <span id="trackTableSummary" style="font-size:12px; color:#64748b;">Showing all requests</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Request Type</th>
+                    <th>Submission & Last Updated</th>
+                    <th>Status</th>
+                    <th>Current Approver / Stage</th>
+                    <th>Approval Progress</th>
+                    <th style="min-width:160px;">Available Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="studentTrackTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 1. STUDENT VIEW ==================== -->
+        <section id="studentView" style="display:none;">
+          <!-- Pending Message Requests Alert Banner -->
+          <div id="studentPendingReqBanner" class="alert alert-info" style="display:none; margin-bottom:16px; border-radius:8px; align-items:center; justify-content:space-between; background:#f0fdfa; border:1.5px solid #99f6e4; color:#0f766e; padding:12px 18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:22px;">📥</span>
+              <div>
+                <strong id="studentPendingReqTitle">You have pending message requests awaiting your response.</strong>
+                <div id="studentPendingReqSub" style="font-size:11.5px; opacity:0.85; margin-top:1px;">Review and accept to start direct messaging.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="App.switchTab('messages', 'received');" style="white-space:nowrap; padding:6px 14px; font-size:12px; font-weight:700;">
+              Review Requests →
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+              <div>
+                <h2 id="studentNameBanner" style="font-size:22px; color:var(--primary); margin-bottom:4px;">Student Demo</h2>
+                <p id="studentMetaBanner" style="color:var(--text-muted); font-size:13px;">Reg No: 620823104002 | Dept: CSE | Section: CSE-A</p>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="StudentPortal.openOdModal()">
+                  <span>📝 Apply for OD</span>
+                </button>
+                <button class="btn btn-secondary" onclick="StudentPortal.openLeaveModal()">
+                  <span>🏖️ Apply for Leave</span>
+                </button>
+                <button class="btn btn-secondary" onclick="StudentPortal.openBonafideModal()">
+                  <span>📜 Bonafide Certificate</span>
+                </button>
+                <button class="btn btn-secondary" onclick="App.switchTab('track')" style="background:#0f172a; color:#fff; border-color:#0f172a;">
+                  <span>📋 Track My Requests</span>
+                </button>
+                <button class="btn btn-navy" onclick="StudentPortal.openComplaintModal()">
+                  <span>🚨 Confidential Complaint to Principal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Metrics -->
+          <div class="metrics-grid">
+            <div id="stCardPending" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting approval">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending Approvals</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="stMetricPending" class="metric-value">0</div>
+              <div class="metric-subtext">Currently in review chain</div>
+            </div>
+            <div id="stCardApproved" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all approved On-Duty applications">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved ODs</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="stMetricApproved" class="metric-value" style="color:var(--success);">0</div>
+              <div class="metric-subtext">Verified certificate generated</div>
+            </div>
+            <div id="stCardRejected" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all rejected requests with reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected ODs</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="stMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
+              <div class="metric-subtext">Halted with audit log</div>
+            </div>
+            <div id="stCardComplaints" class="metric-card clickable-card" onclick="StudentPortal.showCategoryDetails('COMPLAINTS')" role="button" tabindex="0" title="Click to view your direct complaints to Principal">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">🚨 Direct Complaints</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="stMetricComplaints" class="metric-value">0</div>
+              <div class="metric-subtext">Direct to Principal Dr. Sanjay Gandhi</div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section (Shown when clicking any Summary Card) -->
+          <div id="studentMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="studentMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="studentMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending Approvals</h3>
+                    <span id="studentMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="studentMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Requests currently undergoing multi-stage review.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="studentMetricDetailsThead"></thead>
+                  <tbody id="studentMetricDetailsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="studentDashboardMainContent">
+
+          <!-- Official Announcements for Student Dashboard -->
+          <div class="card" style="margin-bottom:20px; border-left:4px solid #0d9488;">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div>
+                <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+                  <span>📢</span> Official Announcements & Section Circulars
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                  Real-time circulars broadcast to your section and department.
+                </div>
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="App.switchTab('announcements')" style="display:inline-flex; align-items:center; gap:6px; font-weight:700;">
+                <span>View Full Notice Board →</span>
+              </button>
+            </div>
+            <div class="card-body">
+              <div id="studentDashboardAnnouncementsList">
+                <!-- Dynamically populated by AnnouncementApp -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent OD Requests -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📝 My On-Duty (OD) Applications</div>
+              <span class="badge-tag badge-teal">🛡️ Verifiable Digital Certificates</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>OD Category</th>
+                    <th>Venue & Reason</th>
+                    <th>Dates / Duration</th>
+                    <th>Status</th>
+                    <th>Current Stage</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="studentRequestsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Leave Applications -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🏖️ My Leave Applications</div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Leave Type</th>
+                    <th>Dates / Duration</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="studentLeavesTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Bonafide Certificate Requests -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📜 Bonafide Certificate Requests</div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Purpose</th>
+                    <th>Academic Year</th>
+                    <th>Certificate Number</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="studentBonafidesTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent Complaints -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🚨 My Direct Complaints to Principal Dr. B. Sanjay Gandhi</div>
+              <span class="badge-tag badge-info">Confidential Channel</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Complaint ID</th>
+                    <th>Category</th>
+                    <th>Subject & Details</th>
+                    <th>Status</th>
+                    <th>Principal Response</th>
+                    <th>Submitted At</th>
+                  </tr>
+                </thead>
+                <tbody id="studentComplaintsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+          </div><!-- End studentDashboardMainContent -->
+        </section>
+
+        <!-- ==================== 2. ADVISOR VIEW ==================== -->
+        <section id="advisorView" style="display:none;">
+          <!-- Advisor Pending Student Message Requests Alert Banner -->
+          <div id="advisorPendingReqBanner" class="alert alert-info" style="display:none; margin-bottom:16px; border-radius:8px; align-items:center; justify-content:space-between; background:#f0fdfa; border:1.5px solid #99f6e4; color:#0f766e; padding:12px 18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:22px;">📥</span>
+              <div>
+                <strong id="advisorPendingReqTitle">You have pending student message requests awaiting your review.</strong>
+                <div id="advisorPendingReqSub" style="font-size:11.5px; opacity:0.85; margin-top:1px;">Students from your section have submitted direct queries.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="App.switchTab('messages', 'received');" style="white-space:nowrap; padding:6px 14px; font-size:12px; font-weight:700;">
+              Review Requests →
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-body" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+              <div>
+                <h2 id="advisorNameBanner" style="font-size:22px; color:var(--primary); margin-bottom:4px;">Advisor Demo</h2>
+                <p id="advisorSectionBanner" style="color:var(--text-muted); font-size:13px;">Class Advisor — Section Isolation Active</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span id="advisorBadgeTag" class="badge-tag badge-teal" style="font-size:13px; padding:5px 14px;">Assigned Section</span>
+                <button type="button" class="btn btn-primary btn-sm" onclick="AdvisorPortal.openClassAnnouncementModal()" style="display:inline-flex; align-items:center; gap:5px; font-weight:700;">
+                  <span>📢 Send Class Announcement</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advisor Metrics -->
+          <div class="metrics-grid">
+            <div id="advCardPending" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting your advisor action">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="advMetricPending" class="metric-value" style="color:var(--warning);">0</div>
+              <div class="metric-subtext">Section student submissions</div>
+            </div>
+            <div id="advCardApproved" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests approved by you and forwarded to HOD">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="advMetricApproved" class="metric-value" style="color:var(--success);">0</div>
+              <div class="metric-subtext">Advanced to HOD</div>
+            </div>
+            <div id="advCardRejected" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by you with audit reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="advMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
+              <div class="metric-subtext">Halted with audit log</div>
+            </div>
+            <div id="advCardTotal" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all requests belonging to your assigned section">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">👥 Total Section Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="advMetricTotal" class="metric-value">0</div>
+              <div class="metric-subtext">Strict section isolation</div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for Class Advisor -->
+          <div id="advisorMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="advisorMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="advisorMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="advisorMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="advisorMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Requests from your assigned section awaiting your authorized review and digital endorsement.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="AdvisorPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="advisorMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, request ID, event..." oninput="AdvisorPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="advisorMetricCategoryFilter" class="form-control" onchange="AdvisorPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Symposium / Conference">Symposium / Conference</option>
+                    <option value="Hackathon">Hackathon</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Paper Presentation">Paper Presentation</option>
+                    <option value="Project Competition">Project Competition</option>
+                    <option value="Sports / Cultural Event">Sports / Cultural Event</option>
+                    <option value="Day Scholar Leave Letter">Day Scholar Leave</option>
+                    <option value="Hosteller Leave Letter">Hosteller Leave</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="advisorMetricStatusFilter" class="form-control" onchange="AdvisorPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_ADVISOR">Pending Advisor</option>
+                    <option value="PENDING_HOD">Pending HOD</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="AdvisorPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="advisorMetricDetailsThead"></thead>
+                  <tbody id="advisorMetricDetailsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Class Announcements & Broadcast History Card -->
+          <div class="card" style="margin-bottom:20px; border-left:4px solid #0d9488;">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div>
+                <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+                  <span>📢</span> Class Announcements & Section Broadcasts
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                  Broadcast official notices to all students in your assigned section at once. Track student read status.
+                </div>
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="AdvisorPortal.openClassAnnouncementModal()" style="display:inline-flex; align-items:center; gap:6px;">
+                <span>➕ Send New Announcement</span>
+              </button>
+            </div>
+            <div class="card-body">
+              <div id="advisorSentAnnouncementsList">
+                <!-- Dynamically populated by AdvisorPortal.loadSentAnnouncements() -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Review Queue -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📥 Section OD Review Queue</div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Student Name & Reg No</th>
+                    <th>OD Type</th>
+                    <th>Dates / Duration</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="advisorRequestsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Advisor Signature & Attendance Monitoring -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+            <div class="card">
+              <div class="card-header"><div class="card-title">✍️ My Authorized Signature</div></div>
+              <div class="card-body">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+                  Your signature is embedded on official certificates when you approve OD requests.
+                </p>
+                <div id="advisorSignaturePreview" style="margin-bottom:14px; min-height:48px; display:flex; align-items:center;">
+                  <span style="font-size:12px; color:#94a3b8; font-style:italic;">Official digital seal active</span>
+                </div>
+                <input type="file" id="advisorSigInput" accept="image/png, image/jpeg" onchange="AdvisorPortal.handleSignatureUpload(event)" style="font-size:12px;">
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><div class="card-title">⚠️ Section Attendance Shortage Monitoring</div></div>
+              <div class="card-body" id="advisorAttendanceStatus"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 3. HOD VIEW ==================== -->
+        <section id="hodView" style="display:none;">
+          <!-- HOD Pending Message Requests Alert Banner -->
+          <div id="hodPendingReqBanner" class="alert alert-info" style="display:none; margin-bottom:16px; border-radius:8px; align-items:center; justify-content:space-between; background:#f0fdfa; border:1.5px solid #99f6e4; color:#0f766e; padding:12px 18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:22px;">📥</span>
+              <div>
+                <strong>You have pending message requests awaiting your review.</strong>
+                <div style="font-size:11.5px; opacity:0.85; margin-top:1px;">Academic requests addressed to Head of Department.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="App.switchTab('messages', 'received');" style="white-space:nowrap; padding:6px 14px; font-size:12px; font-weight:700;">
+              Review Requests →
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 id="hodNameBanner" style="font-size:22px; color:var(--primary); margin-bottom:4px;">HOD Demo</h2>
+              <p id="hodDeptBanner" style="color:var(--text-muted); font-size:13px;">Head of Department — Computer Science & Engineering</p>
+            </div>
+          </div>
+
+          <!-- HOD Metrics -->
+          <div class="metrics-grid">
+            <div id="hodCardPending" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting HOD review">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="hodMetricPending" class="metric-value" style="color:var(--warning);">0</div>
+              <div class="metric-subtext">Approved by Class Advisor</div>
+            </div>
+            <div id="hodCardApproved" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests approved by HOD">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="hodMetricApproved" class="metric-value" style="color:var(--success);">0</div>
+              <div class="metric-subtext">Sanctioned or sent to Principal</div>
+            </div>
+            <div id="hodCardRejected" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by HOD with reason">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="hodMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
+              <div class="metric-subtext">Halted with audit log</div>
+            </div>
+            <div id="hodCardTotal" class="metric-card clickable-card" onclick="HodPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all requests within HOD's authorized department scope">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">📊 Total Department Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="hodMetricTotal" class="metric-value">0</div>
+              <div class="metric-subtext">All CSE Sections</div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for HOD -->
+          <div id="hodMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="hodMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="hodMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="hodMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="hodMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Department requests endorsed by Class Advisors awaiting your official executive decision.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="HodPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="hodMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, request ID, event..." oninput="HodPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="hodMetricCategoryFilter" class="form-control" onchange="HodPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Symposium / Conference">Symposium / Conference</option>
+                    <option value="Hackathon">Hackathon</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Paper Presentation">Paper Presentation</option>
+                    <option value="Project Competition">Project Competition</option>
+                    <option value="Sports / Cultural Event">Sports / Cultural Event</option>
+                    <option value="Day Scholar Leave Letter">Day Scholar Leave</option>
+                    <option value="Hosteller Leave Letter">Hosteller Leave</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="hodMetricStatusFilter" class="form-control" onchange="HodPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_HOD">Pending HOD</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="HodPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="hodMetricDetailsThead"></thead>
+                  <tbody id="hodMetricDetailsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Department Analytics Dashboard -->
+          <div id="hodAnalyticsContainer"></div>
+
+          <!-- HOD Review Table -->
+          <div class="card">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="card-title" style="margin:0;">📋 Head of Department Review Queue</div>
+                <span id="hodQueueCountBadge" class="badge-tag badge-warning">0 Pending</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <!-- Filter Pills -->
+                <div class="filter-pill-group" style="display:inline-flex; background:#f1f5f9; padding:3px; border-radius:8px; gap:4px;">
+                  <button type="button" id="hodTabPending" class="btn btn-sm btn-primary" onclick="HodPortal.setFilter('PENDING_HOD')" style="padding:4px 12px; font-size:12px; border-radius:6px;">
+                    ⏳ Pending Review <span id="hodFilterBadgePending" class="badge-tag badge-warning" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="hodTabApproved" class="btn btn-sm btn-secondary" onclick="HodPortal.setFilter('APPROVED')" style="padding:4px 12px; font-size:12px; border-radius:6px;">
+                    ✅ Approved <span id="hodFilterBadgeApproved" class="badge-tag badge-approved" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="hodTabRejected" class="btn btn-sm btn-secondary" onclick="HodPortal.setFilter('REJECTED')" style="padding:4px 12px; font-size:12px; border-radius:6px;">
+                    ❌ Rejected <span id="hodFilterBadgeRejected" class="badge-tag badge-rejected" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                  <button type="button" id="hodTabAll" class="btn btn-sm btn-secondary" onclick="HodPortal.setFilter('ALL')" style="padding:4px 12px; font-size:12px; border-radius:6px;">
+                    📁 All Requests <span id="hodFilterBadgeAll" class="badge-tag badge-secondary" style="margin-left:4px; padding:1px 6px; font-size:10px;">0</span>
+                  </button>
+                </div>
+                <!-- Search input -->
+                <div style="position:relative;">
+                  <input type="text" id="hodFilterSearchInput" class="form-control" placeholder="Search ref, student, reg no..." style="padding:5px 12px; font-size:12px; width:190px; height:32px;" oninput="HodPortal.onSearchInput(this.value)">
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="HodPortal.loadRequests()" title="Refresh Queue" style="padding:5px 10px; height:32px;">
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Student Name & Reg No</th>
+                    <th>Dept & Section</th>
+                    <th>Request Type</th>
+                    <th>Submitted Date</th>
+                    <th>Current Stage</th>
+                    <th>Class Advisor Decision</th>
+                    <th style="min-width:180px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="hodRequestsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- HOD Signature -->
+          <div class="card" style="max-width: 520px;">
+            <div class="card-header"><div class="card-title">✍️ HOD Authorized Signature</div></div>
+            <div class="card-body">
+              <div id="hodSignaturePreview" style="margin-bottom:14px; min-height:48px; display:flex; align-items:center;">
+                <span style="font-size:12px; color:#94a3b8; font-style:italic;">Department seal active</span>
+              </div>
+              <input type="file" id="hodSigInput" accept="image/png, image/jpeg" onchange="HodPortal.handleSignatureUpload(event)" style="font-size:12px;">
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4. PRINCIPAL VIEW ==================== -->
+        <section id="principalView" style="display:none;">
+          <!-- Principal Pending Message Requests Alert Banner -->
+          <div id="principalPendingReqBanner" class="alert alert-info" style="display:none; margin-bottom:16px; border-radius:8px; align-items:center; justify-content:space-between; background:#f0fdfa; border:1.5px solid #99f6e4; color:#0f766e; padding:12px 18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:22px;">📥</span>
+              <div>
+                <strong>You have pending message requests awaiting executive review.</strong>
+                <div style="font-size:11.5px; opacity:0.85; margin-top:1px;">Academic and institutional queries addressed to Principal.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="App.switchTab('messages', 'received');" style="white-space:nowrap; padding:6px 14px; font-size:12px; font-weight:700;">
+              Review Requests →
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h2 id="principalNameBanner" style="font-size:22px; color:var(--primary); margin-bottom:4px;">Principal Demo</h2>
+              <p id="principalRoleBanner" style="color:var(--text-muted); font-size:13px;">Principal — Gnanamani College of Technology (Autonomous)</p>
+            </div>
+          </div>
+
+          <!-- Principal Metrics -->
+          <div class="metrics-grid">
+            <div id="prinCardPending" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all Bonafide Certificate requests currently awaiting Principal review">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">⏳ Pending My Review</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricPending" class="metric-value" style="color:var(--warning);">0</div>
+              <div class="metric-subtext">Bonafide Certificate applications <span id="prinMetricOdPending" style="display:none;">0</span></div>
+            </div>
+            <div id="prinCardApproved" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('APPROVED')" role="button" tabindex="0" title="Click to view all requests officially approved & sanctioned by Principal">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">✅ Approved & Forwarded</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricApproved" class="metric-value" style="color:var(--success);">0</div>
+              <div class="metric-subtext">Sanctioned & completed with seal <span id="prinMetricComplaintsResolved" style="display:none;">0</span></div>
+            </div>
+            <div id="prinCardRejected" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('REJECTED')" role="button" tabindex="0" title="Click to view all requests rejected by Principal with audit reasons">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">❌ Rejected with Reason</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricRejected" class="metric-value" style="color:var(--danger);">0</div>
+              <div class="metric-subtext">Halted with audit log</div>
+            </div>
+            <div id="prinCardTotal" class="metric-card clickable-card" onclick="PrincipalPortal.showCategoryDetails('TOTAL')" role="button" tabindex="0" title="Click to view all institutional requests in Principal's scope (Bonafides & Complaints)">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="metric-label">🏛️ Total Requests</div>
+                <span class="card-click-hint" style="font-size:10.5px; color:#0d9488; font-weight:600;">View Details →</span>
+              </div>
+              <div id="prinMetricTotal" class="metric-value">0</div>
+              <div class="metric-subtext">Bonafides & Direct Complaints <span id="prinMetricComplaintsPending" style="display:none;">0</span><span id="prinMetricTotalComplaints" style="display:none;">0</span></div>
+            </div>
+          </div>
+
+          <!-- Interactive Metric Details Section for Principal -->
+          <div id="principalMetricDetailsSection" class="card" style="display:none; margin-bottom:24px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="principalMetricDetailsIcon" style="font-size:26px;">⏳</span>
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="principalMetricDetailsTitle" style="font-size:18px; color:var(--primary); margin:0;">Pending My Review</h3>
+                    <span id="principalMetricDetailsBadge" class="badge-tag badge-warning">0 Records</span>
+                  </div>
+                  <div id="principalMetricDetailsSubtext" style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                    Bonafide Certificate applications awaiting Principal final executive sanction.
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="PrincipalPortal.closeCategoryDetails()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                  <span>✕ Back to Dashboard</span>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px 20px 0 20px; background:#fafafa; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                <div style="flex:1; min-width:220px;">
+                  <input type="text" id="principalMetricSearchInput" class="form-control" placeholder="🔍 Search student name, reg no, ID, subject, purpose..." oninput="PrincipalPortal.onMetricSearchInput(this.value)">
+                </div>
+                <div style="width:200px;">
+                  <select id="principalMetricCategoryFilter" class="form-control" onchange="PrincipalPortal.onMetricCategoryChange(this.value)">
+                    <option value="ALL">All Categories</option>
+                    <option value="Bonafide Certificate">Bonafide Certificate</option>
+                    <option value="COMPLAINT">Student Complaints</option>
+                  </select>
+                </div>
+                <div style="width:160px;">
+                  <select id="principalMetricStatusFilter" class="form-control" onchange="PrincipalPortal.onMetricStatusChange(this.value)">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING_PRINCIPAL">Pending Principal</option>
+                    <option value="APPROVED">Approved / Resolved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="PrincipalPortal.resetMetricFilters()" title="Reset Filters" style="font-size:11px; padding:6px 10px;">
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-responsive">
+                <table class="data-table" style="margin:0;">
+                  <thead id="principalMetricDetailsThead"></thead>
+                  <tbody id="principalMetricDetailsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- College-Wide Analytics -->
+          <div id="principalAnalyticsContainer"></div>
+
+          <!-- Direct Complaints Table -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🚨 Confidential Student Complaints (Direct to Principal)</div>
+              <span class="badge-tag badge-teal">Direct Channel</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Complaint ID</th>
+                    <th>Student & Classification</th>
+                    <th>Category</th>
+                    <th>Subject & Details</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="principalComplaintsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Bonafide Certificate Requests Requiring Principal Review -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📜 Bonafide Certificate Requests Requiring Principal Review (Stage 3 Final Sanction)</div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ref ID</th>
+                    <th>Student & Section</th>
+                    <th>OD Type</th>
+                    <th>Dates / Duration</th>
+                    <th>Status</th>
+                    <th>HOD Endorsement</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="principalOdTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Principal Signature -->
+          <div class="card" style="max-width: 520px;">
+            <div class="card-header"><div class="card-title">✍️ Principal Authorized Digital Seal</div></div>
+            <div class="card-body">
+              <div id="prinSignaturePreview" style="margin-bottom:14px; min-height:48px; display:flex; align-items:center;">
+                <span style="font-size:12px; color:#94a3b8; font-style:italic;">Institutional seal active</span>
+              </div>
+              <input type="file" id="prinSigInput" accept="image/png, image/jpeg" onchange="PrincipalPortal.handleSignatureUpload(event)" style="font-size:12px;">
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4B. ADMINISTRATOR DASHBOARD VIEW ==================== -->
+        <section id="adminView" style="display:none;">
+          <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg, #0f2942, #1e3a5f); color:#ffffff; padding:20px 24px; border-radius:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+              <div>
+                <span class="badge-tag" style="background:rgba(255,255,255,0.15); color:#99f6e4; font-size:11px; font-weight:700; margin-bottom:6px; display:inline-block;">⚡ Directorate of Administration</span>
+                <h2 style="margin:0; font-size:22px; font-weight:800; color:#ffffff;">College Administration Operations Desk</h2>
+                <p style="margin:4px 0 0; font-size:12.5px; color:#cbd5e1;">View student records, manage institutional circulars, and review academic operations per college management directives.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4D. COLLEGE ANNOUNCEMENTS VIEW ==================== -->
+        <section id="announcementsView" style="display:none;">
+          <div class="card" style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h2 style="margin:0; font-size:20px; font-weight:800; color:var(--primary);">📢 Institutional Announcements Board</h2>
+                <p style="margin:2px 0 0; font-size:12.5px; color:#64748b;">Official administrative circulars, academic notifications, and department reminders.</p>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <button id="postAnnouncementBtn" class="btn btn-primary" onclick="AnnouncementApp.openPostAnnouncementModal()" style="display:none; align-items:center; gap:6px;">
+                  <span>➕ Post Announcement</span>
+                </button>
+                <button class="btn btn-secondary" onclick="AnnouncementApp.loadAnnouncements()">🔄 Refresh</button>
+              </div>
+            </div>
+
+            <!-- Priority Filter Buttons -->
+            <div style="display:flex; gap:8px; margin-top:16px; border-top:1px solid #f1f5f9; padding-top:14px; flex-wrap:wrap;">
+              <button class="btn btn-sm announcement-filter-btn active" data-priority="ALL" onclick="AnnouncementApp.setFilter('ALL')">All Notices</button>
+              <button class="btn btn-sm announcement-filter-btn" data-priority="URGENT" onclick="AnnouncementApp.setFilter('URGENT')">🚨 Urgent</button>
+              <button class="btn btn-sm announcement-filter-btn" data-priority="IMPORTANT" onclick="AnnouncementApp.setFilter('IMPORTANT')">⚠️ Important</button>
+              <button class="btn btn-sm announcement-filter-btn" data-priority="NORMAL" onclick="AnnouncementApp.setFilter('NORMAL')">ℹ️ General</button>
+            </div>
+          </div>
+
+          <div id="announcementsListContainer"></div>
+        </section>
+
+        <!-- ==================== 5. NOTIFICATIONS CONTAINER ==================== -->
+        <section id="notificationsContainer" style="display:none;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🔔 Official Notifications</div>
+              <button class="btn btn-sm btn-secondary" onclick="App.loadNotifications()">Refresh</button>
+            </div>
+            <div id="notificationsList" class="card-body"></div>
+          </div>
+        </section>
+
+        <!-- ==================== 6. HISTORY CONTAINER ==================== -->
+        <section id="historyContainer" style="display:none;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📜 Institutional Decision Audit History</div>
+              <span class="badge-tag badge-teal">Immutable Audit Trail</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Reference ID</th>
+                    <th>Student</th>
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Final Status</th>
+                    <th>Decision Notes / QR Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 7. INSTITUTIONAL MESSAGES & CHAT VIEW ==================== -->
+        <section id="chatView" style="display:none;">
+          <div class="chat-container">
+            <!-- Left Pane: Conversations Directory -->
+            <div class="chat-sidebar">
+              <div class="chat-sidebar-header">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <div>
+                    <h3 style="font-size:15px; font-weight:800; color:var(--primary); margin:0; letter-spacing:-0.2px;">Institutional Messages</h3>
+                    <p style="font-size:11px; color:#64748b; margin-top:2px;">Role-Authorized Direct Channels</p>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="ChatApp.openNewChatModal()" style="display:flex; align-items:center; gap:5px; font-size:12px; padding:6px 12px; border-radius:20px; font-weight:600; box-shadow:0 2px 6px rgba(13,148,136,0.25);">
+                    <span>➕ New Chat</span>
+                  </button>
+                </div>
+
+                <!-- Modern Search Input with Clear Button -->
+                <div class="chat-search-wrap">
+                  <span class="chat-search-icon">🔍</span>
+                  <input type="text" id="chatSearchInput" class="chat-search-input" placeholder="Search conversations or contacts..." oninput="ChatApp.filterConversations(this.value)">
+                  <button type="button" id="chatSearchClearBtn" class="chat-search-clear" onclick="ChatApp.clearSearch()" style="display:none;" title="Clear search">&times;</button>
+                </div>
+
+                <!-- Modern Quick Filter Pills -->
+                <div class="chat-filter-pills" id="chatFilterPills">
+                  <button type="button" class="chat-filter-pill active" data-filter="all" onclick="ChatApp.setFilter('all')">All</button>
+                  <button type="button" class="chat-filter-pill" data-filter="unread" onclick="ChatApp.setFilter('unread')">
+                    Unread <span id="chatUnreadFilterCount" class="filter-count-badge" style="display:none;">0</span>
+                  </button>
+                  <button type="button" class="chat-filter-pill" data-filter="staff" onclick="ChatApp.setFilter('staff')">Faculty & Staff</button>
+                  <button type="button" class="chat-filter-pill" data-filter="students" onclick="ChatApp.setFilter('students')">Students</button>
+                  <button type="button" class="chat-filter-pill" data-filter="pinned" onclick="ChatApp.setFilter('pinned')">
+                    📌 Pinned
+                  </button>
+                </div>
+              </div>
+
+              <!-- Active Conversations List -->
+              <div id="chatConversationsList" class="chat-conversations-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Middle Pane: Active Chat Room -->
+            <div class="chat-main">
+              <!-- Empty state (no conversation selected) -->
+              <div id="chatEmptyState" class="chat-empty-state">
+                <div class="chat-empty-icon">💬</div>
+                <h3 style="font-size:16px; font-weight:700; color:var(--primary); margin-bottom:6px;">Select an Institutional Conversation</h3>
+                <p style="font-size:13px; color:#64748b; max-width:340px; margin:0 auto 16px auto; line-height:1.5;">
+                  Direct two-way verified communication between students, assigned class advisors, HOD, and Principal.
+                </p>
+                <button class="btn btn-primary btn-sm" onclick="ChatApp.openNewChatModal()">
+                  <span>Start New Conversation</span>
+                </button>
+              </div>
+
+              <!-- Active Chat View -->
+              <div id="chatActivePane" style="display:none; flex-direction:column; height:100%; position:relative;">
+                <div class="chat-header">
+                  <div class="chat-header-user">
+                    <button id="activeChatBackBtn" type="button" class="chat-back-btn" onclick="ChatApp.closeActiveConversationMobile()" title="Back to conversations">
+                      ←
+                    </button>
+                    <div id="activeChatAvatar" class="chat-avatar" onclick="ChatApp.toggleProfilePanel()" style="cursor:pointer;" title="View Contact Details">U</div>
+                    <div style="cursor:pointer;" onclick="ChatApp.toggleProfilePanel()" title="View Contact Details">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="activeChatName" style="font-weight:700; font-size:14.5px; color:var(--primary);">Contact Name</span>
+                        <span id="activeChatRoleBadge" class="badge-tag badge-teal" style="font-size:10px;">Role</span>
+                        <span id="activeChatPinIndicator" style="display:none; font-size:11px;" title="Pinned Conversation">📌</span>
+                      </div>
+                      <div id="activeChatSub" style="font-size:11px; color:#64748b; margin-top:1px;">Academic Details</div>
+                    </div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="chat-verified-pill">
+                      <span class="verified-dot"></span> Verified Direct Channel
+                    </span>
+                    <button type="button" id="chatSearchToggleBtn" class="chat-header-action-btn" onclick="ChatApp.toggleSearchInChat()" title="Search messages in conversation">
+                      🔍
+                    </button>
+                    <button type="button" id="chatProfileToggleBtn" class="chat-header-action-btn" onclick="ChatApp.toggleProfilePanel()" title="Contact & Profile Details">
+                      ℹ️
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Slide-down in-conversation message search -->
+                <div id="chatInConvSearchWrap" class="chat-in-conv-search" style="display:none;">
+                  <span class="chat-search-icon">🔍</span>
+                  <input type="text" id="chatInConvSearchInput" class="chat-search-input" placeholder="Search in this conversation..." oninput="ChatApp.handleSearchInChat(this.value)">
+                  <span id="chatInConvMatchCount" style="font-size:11px; color:#64748b; white-space:nowrap; margin-right:6px;"></span>
+                  <button type="button" class="chat-search-close-btn" onclick="ChatApp.closeSearchInChat()" title="Close Search">&times;</button>
+                </div>
+
+                <!-- Messages container -->
+                <div id="chatMessagesArea" class="chat-messages-area">
+                  <!-- Messages rendered here -->
+                </div>
+
+                <!-- Floating Scroll-to-bottom Button -->
+                <button type="button" id="chatScrollBottomBtn" class="chat-scroll-bottom-btn" onclick="ChatApp.scrollToBottom(true)" style="display:none;" title="Scroll to bottom">
+                  <span>↓</span>
+                  <span id="chatNewMsgPill" class="chat-new-msg-pill" style="display:none;">New</span>
+                </button>
+
+                <!-- Typing indicator banner -->
+                <div id="chatTypingIndicator" class="chat-typing-bar" style="display:none;">
+                  <span class="typing-dots"><span></span><span></span><span></span></span>
+                  <span id="chatTypingText" class="typing-text">Contact is typing...</span>
+                </div>
+
+                <!-- Voice Recording Live Bar -->
+                <div id="chatVoiceRecordingBar" class="chat-voice-recording-bar" style="display:none;">
+                  <div class="voice-rec-live">
+                    <span class="voice-rec-dot"></span>
+                    <span id="chatVoiceTimer" class="voice-rec-timer">0:00</span>
+                    <span class="voice-rec-status">Recording voice note...</span>
+                  </div>
+                  <div class="voice-rec-actions">
+                    <button type="button" class="btn btn-sm btn-outline-danger voice-rec-cancel" onclick="ChatApp.cancelVoiceRecording()" title="Cancel voice recording">❌ Cancel</button>
+                    <button type="button" class="btn btn-sm btn-primary voice-rec-send" onclick="ChatApp.sendVoiceRecording()" title="Send voice note">Send Audio 🎙️</button>
+                  </div>
+                </div>
+
+                <!-- Fixed message composer -->
+                <div class="chat-composer-wrap">
+                  <!-- Quoted Reply Banner -->
+                  <div id="chatReplyBanner" class="chat-reply-banner" style="display:none;">
+                    <div class="reply-banner-border"></div>
+                    <div class="reply-banner-content">
+                      <div class="reply-banner-title">
+                        <span>↩ Replying to </span><strong id="chatReplySender">Contact</strong>
+                      </div>
+                      <div id="chatReplySnippet" class="reply-banner-snippet">Snippet of message...</div>
+                    </div>
+                    <button type="button" class="reply-banner-dismiss" onclick="ChatApp.cancelReply()" title="Cancel Reply">&times;</button>
+                  </div>
+
+                  <!-- Attachment Preview Banner -->
+                  <div id="chatAttachmentBanner" class="chat-attachment-banner" style="display:none;">
+                    <span id="chatAttachIcon" class="attachment-badge-icon">📎</span>
+                    <div class="attachment-banner-info">
+                      <span id="chatAttachName" class="attachment-banner-name">document.pdf</span>
+                      <span id="chatAttachSize" class="attachment-banner-size">(0 KB)</span>
+                    </div>
+                    <button type="button" class="attachment-banner-dismiss" onclick="ChatApp.cancelAttachment()" title="Remove Attachment">&times;</button>
+                  </div>
+
+                  <!-- Floating Emoji Picker -->
+                  <div id="chatEmojiPicker" class="chat-emoji-picker" style="display:none;">
+                    <div class="emoji-picker-header">
+                      <span>Quick Emojis</span>
+                      <button type="button" class="emoji-picker-close" onclick="ChatApp.toggleEmojiPicker(false)">&times;</button>
+                    </div>
+                    <div id="chatEmojiGrid" class="emoji-picker-grid">
+                      <!-- Dynamically rendered or preloaded -->
+                    </div>
+                  </div>
+
+                  <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.txt" onchange="ChatApp.handleFileSelected(event)">
+
+                  <form id="chatMessageForm" class="chat-composer-form" onsubmit="event.preventDefault(); ChatApp.handleSendMessage(event); return false;">
+                    <button type="button" class="btn-composer-icon" onclick="ChatApp.triggerFileInput()" title="Attach image or document">📎</button>
+                    <button type="button" id="chatEmojiBtn" class="btn-composer-icon" onclick="ChatApp.toggleEmojiPicker()" title="Insert emoji">😊</button>
+                    <button type="button" id="chatVoiceRecordBtn" class="btn-composer-icon" onclick="ChatApp.toggleVoiceRecording()" title="Record voice message">🎙️</button>
+                    <textarea id="chatMessageInput" class="chat-input-textarea" placeholder="Type an official message... (Press Enter to send, Shift+Enter for new line)" rows="1" oninput="ChatApp.handleInputChange()" onkeydown="ChatApp.handleInputKeydown(event)" required></textarea>
+                    <span id="chatCharCounter" style="display:none; font-size:11px; color:#64748b; margin-right:4px; align-self:center;"></span>
+                    <button type="button" id="chatSendBtn" class="btn btn-primary chat-send-btn" onclick="ChatApp.handleSendMessage(event)" title="Send message">
+                      <span>Send</span>
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Pane: Contact & Profile Details (Toggleable) -->
+            <aside id="chatProfilePanel" class="chat-profile-panel" style="display:none;">
+              <div class="chat-profile-header">
+                <div style="font-weight:700; font-size:13.5px; color:var(--primary); display:flex; align-items:center; gap:6px;">
+                  <span>👤</span> <span>Contact Details</span>
+                </div>
+                <button type="button" class="chat-panel-close-btn" onclick="ChatApp.toggleProfilePanel(false)" title="Close">&times;</button>
+              </div>
+
+              <div class="chat-profile-scroll">
+                <div class="chat-profile-hero">
+                  <div id="panelAvatar" class="chat-avatar-lg">U</div>
+                  <h3 id="panelContactName" class="panel-contact-name">Contact Name</h3>
+                  <div id="panelRoleBadge" class="badge-tag badge-teal" style="font-size:11px;">Role</div>
+                  <div id="panelIdWrap" class="panel-id-copy" onclick="ChatApp.copyIdentifier()" title="Click to copy identifier">
+                    <span id="panelIdentifier">ID</span>
+                    <span class="copy-icon">📋</span>
+                  </div>
+                </div>
+
+                <div class="panel-card">
+                  <div class="panel-card-title">Academic Details</div>
+                  <div class="panel-row">
+                    <span class="p-label">Department</span>
+                    <span id="panelDept" class="p-val">Computer Science (CSE)</span>
+                  </div>
+                  <div class="panel-row">
+                    <span class="p-label">Section</span>
+                    <span id="panelSection" class="p-val">CSE-A</span>
+                  </div>
+                  <div class="panel-row">
+                    <span class="p-label">Role Designation</span>
+                    <span id="panelDesignation" class="p-val">IV Year B.E.</span>
+                  </div>
+                  <div id="panelBioRow" class="panel-row" style="flex-direction:column; align-items:flex-start; gap:4px; display:none;">
+                    <span class="p-label">Institutional Bio</span>
+                    <span id="panelBio" class="p-val" style="font-size:11.5px; color:#475569; font-weight:normal; line-height:1.4;"></span>
+                  </div>
+                </div>
+
+                <div class="panel-card panel-verified-card">
+                  <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                    <span style="font-size:15px;">🛡️</span>
+                    <strong style="font-size:12px; color:#0f766e;">Verified Academic Channel</strong>
+                  </div>
+                  <p style="font-size:11px; color:#334155; margin:0; line-height:1.45;">
+                    Direct communication secured under EPOCH Institutional Governance. Participant-only access strictly enforced.
+                  </p>
+                </div>
+
+                <div class="panel-card">
+                  <div class="panel-card-title">Conversation Details</div>
+                  <div class="panel-row">
+                    <span class="p-label">Conversation ID</span>
+                    <span id="panelConvId" class="p-val p-code" onclick="ChatApp.copyConvId()" title="Click to copy conversation ID">conv_...</span>
+                  </div>
+                  <div class="panel-row">
+                    <span class="p-label">Exchanged Messages</span>
+                    <span id="panelMsgCount" class="p-val">0</span>
+                  </div>
+                  <div class="panel-row">
+                    <span class="p-label">Channel Status</span>
+                    <span class="p-val" style="color:#10b981; font-weight:700;">● Active</span>
+                  </div>
+                </div>
+
+                <div class="panel-actions-wrap">
+                  <button type="button" id="panelPinBtn" class="btn btn-sm btn-outline-primary panel-btn" onclick="ChatApp.togglePinActiveConversation()">
+                    <span id="panelPinIcon">📌</span> <span id="panelPinText">Pin Conversation</span>
+                  </button>
+                  <button type="button" id="panelMuteBtn" class="btn btn-sm btn-outline-secondary panel-btn" onclick="ChatApp.toggleMuteActiveConversation()">
+                    <span id="panelMuteIcon">🔕</span> <span id="panelMuteText">Mute Notifications</span>
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== FLOATING STUDENT ASSISTANT WIDGET ==================== -->
+  <button id="assistantFloatingBtn" class="assistant-btn" style="display:none;" onclick="Assistant.toggle()" title="Student Assistant" aria-label="Open Student Assistant">
+    <span class="assistant-ai-icon" style="font-size:15px; display:inline-flex; align-items:center;">🤖</span>
+    <span>Student Assistant</span>
+  </button>
+
+  <div id="assistantDrawer" class="assistant-drawer" style="display:none;">
+    <div class="assistant-header">
+      <div style="font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px;">
+        <span>🤖</span> EPOCH Student Assistant
+      </div>
+      <button class="modal-close" style="color:#ffffff;" onclick="Assistant.close()">&times;</button>
+    </div>
+
+    <div id="assistantMessages" class="assistant-messages">
+      <div class="assistant-msg msg-bot">
+        <div style="font-size:10px; font-weight:700; color:var(--accent-teal); text-transform:uppercase; margin-bottom:4px;">Academic Helper</div>
+        Hello! How can I assist you with OD applications, attendance regulations, bonafide requests, or confidential principal grievances today?
+      </div>
+    </div>
+
+    <div id="assistantSuggestions" class="assistant-suggestions"></div>
+
+    <div class="assistant-input-box">
+      <input type="text" id="assistantInput" class="form-control" placeholder="Ask a question..." onkeydown="if(event.key==='Enter') Assistant.send()">
+      <button class="btn btn-sm btn-primary" onclick="Assistant.send()">Ask</button>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Edit Profile Modal -->
+  <div id="editProfileModal" class="modal-overlay" style="display:none; z-index:1050;">
+    <div class="modal-content" style="max-width: 560px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit Student Profile</div>
+        <button class="modal-close" onclick="ProfileManager.closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px 24px;">
+        <form id="editProfileForm" onsubmit="ProfileManager.saveProfile(event)">
+          <div id="editProfileAlert" class="alert alert-danger" style="display:none; font-size:12.5px; margin-bottom:14px;"></div>
+          <div id="editProfileSuccess" class="alert alert-success" style="display:none; font-size:12.5px; margin-bottom:14px;"></div>
+          
+          <!-- Permitted Editable Fields -->
+          <div style="font-size:11.5px; font-weight:700; color:var(--accent-teal); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">
+            ✏️ Permitted Details (Editable)
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label for="editProfName" style="font-weight:600; font-size:13px;">Full Display Name *</label>
+            <input type="text" id="editProfName" class="form-control" required placeholder="Enter your full display name">
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label for="editProfContact" style="font-weight:600; font-size:13px;">Contact Phone Number *</label>
+            <input type="text" id="editProfContact" class="form-control" required placeholder="+91 98765 00000">
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="editProfBio" style="font-weight:600; font-size:13px;">Profile Bio & Academic Notes</label>
+            <textarea id="editProfBio" class="form-control" rows="2" placeholder="Brief statement about your academic focus or co-curricular achievements"></textarea>
+          </div>
+
+          <!-- Institutional Verified Records (Read-Only) -->
+          <div style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; border-top:1px dashed var(--border); padding-top:14px;">
+            🔒 Institutional Records (Read-Only)
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
+            <div class="form-group">
+              <label for="editProfId" style="font-size:12px; color:#64748b;">Registration Number</label>
+              <input type="text" id="editProfId" class="form-control" disabled style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+            </div>
+            <div class="form-group">
+              <label for="editProfYear" style="font-size:12px; color:#64748b;">Academic Year</label>
+              <input type="text" id="editProfYear" class="form-control" disabled value="IV Year B.E." style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
+            <div class="form-group">
+              <label for="editProfDept" style="font-size:12px; color:#64748b;">Department</label>
+              <input type="text" id="editProfDept" class="form-control" disabled style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+            </div>
+            <div class="form-group">
+              <label for="editProfSection" style="font-size:12px; color:#64748b;">Section</label>
+              <input type="text" id="editProfSection" class="form-control" disabled style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="editProfEmail" style="font-size:12px; color:#64748b;">Institutional Email</label>
+            <input type="email" id="editProfEmail" class="form-control" disabled style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+          </div>
+
+          <div class="modal-footer" style="padding:14px 0 0 0; margin-top:10px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-secondary" onclick="ProfileManager.closeEditModal()">Cancel</button>
+            <button type="submit" id="saveProfileBtn" class="btn btn-primary" style="display:flex; align-items:center; gap:6px;">
+              <span>💾 Save Profile Changes</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Profile Photo Modal -->
+  <div id="profilePhotoModal" class="modal-overlay" style="display:none; z-index:1055;">
+    <div class="modal-content" style="max-width: 480px; width: 95%; border-radius: 16px;">
+      <div class="modal-header">
+        <div class="modal-title" style="display:flex; align-items:center; gap:8px;">
+          <span>📸</span>
+          <span>Upload Profile Photo</span>
+        </div>
+        <button class="modal-close" onclick="ProfileManager.closePhotoModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 24px; text-align: center;">
+        <div id="photoModalAlert" class="alert alert-danger" style="display:none; font-size:12.5px; margin-bottom:16px; text-align:left;"></div>
+        
+        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <div class="photo-preview-circle" style="width:160px; height:160px; border-radius:50%; border:4px solid var(--accent-teal, #0d9488); overflow:hidden; box-shadow:0 8px 24px rgba(13,148,136,0.2); position:relative; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+            <img id="photoPreviewImg" src="" alt="Preview" style="display:none; width:100%; height:100%; object-fit:cover;">
+            <div id="photoPreviewPlaceholder" style="font-size:48px; color:#94a3b8; font-weight:700;">U</div>
+          </div>
+
+          <div id="photoFileInfo" style="font-size:12.5px; color:#475569; background:#f8fafc; padding:8px 16px; border-radius:20px; border:1px solid #e2e8f0;">
+            <span id="photoFileName">No file selected</span> • <span id="photoFileSize">0 KB</span>
+          </div>
+
+          <p style="font-size:12px; color:#64748b; margin:0; line-height:1.5;">
+            Supported formats: <strong>JPG, JPEG, PNG, WEBP</strong> (Max 5 MB).<br>
+            Your photo will be securely stored in your personal profile.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 16px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnChangePhotoModal" onclick="ProfileManager.triggerPhotoUpload()" style="display:flex; align-items:center; gap:5px;">
+            <span>🔄 Change Photo</span>
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" id="btnRemovePhotoModal" onclick="ProfileManager.removePhotoFromModal()" style="display:none; align-items:center; gap:5px; color:#ef4444; border-color:#fca5a5; background:#ffffff;">
+            <span>🗑️ Remove</span>
+          </button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="ProfileManager.closePhotoModal()">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnSavePhotoModal" onclick="ProfileManager.saveSelectedPhoto()" style="display:flex; align-items:center; gap:5px;">
+            <span>💾 Save Photo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. ENHANCED OD APPLICATION MODAL (CATEGORY -> STRUCTURED FORM -> PRINTABLE PREVIEW) -->
+  <div id="odModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 820px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title" id="odModalHeaderTitle">📝 On-Duty (OD) Application Portal</div>
+        <button class="modal-close" onclick="StudentPortal.closeOdModal()">&times;</button>
+      </div>
+
+      <!-- STEP 1: OD TYPE SELECTION PAGE -->
+      <div id="odCategoryStep" class="modal-body">
+        <div style="margin-bottom: 16px;">
+          <h3 style="font-size: 16px; font-weight: 800; color: var(--primary); margin: 0;">Step 1: Select OD Category</h3>
+          <p style="font-size: 12.5px; color: #64748b; margin-top: 4px;">
+            Choose the category of academic, co-curricular, or official institutional activity you are participating in:
+          </p>
+        </div>
+
+        <div class="od-category-grid">
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Symposium / Conference')">
+            <div class="od-cat-icon">🏛️</div>
+            <div>
+              <div class="od-cat-title">Symposium / Conference</div>
+              <div class="od-cat-desc">National/international technical symposiums, research conferences, and academic paper sessions.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Workshop')">
+            <div class="od-cat-icon">🛠️</div>
+            <div>
+              <div class="od-cat-title">Workshop</div>
+              <div class="od-cat-desc">Hands-on technical workshops, industrial training, developer bootcamps, and skill clinics.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Hackathon')">
+            <div class="od-cat-icon">💻</div>
+            <div>
+              <div class="od-cat-title">Hackathon</div>
+              <div class="od-cat-desc">24/36/48-hour competitive software hackathons, hardware sprints, and innovation challenges.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Paper Presentation')">
+            <div class="od-cat-icon">📑</div>
+            <div>
+              <div class="od-cat-title">Paper Presentation</div>
+              <div class="od-cat-desc">Research paper presentations, IEEE/Springer proceedings, and academic symposium presentation tracks.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Project Competition')">
+            <div class="od-cat-icon">🏆</div>
+            <div>
+              <div class="od-cat-title">Project Competition</div>
+              <div class="od-cat-desc">Inter-collegiate project expos, startup pitch challenges, prototype demonstrations, and maker fairs.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Sports / Cultural Event')">
+            <div class="od-cat-icon">🏅</div>
+            <div>
+              <div class="od-cat-title">Sports / Cultural Event</div>
+              <div class="od-cat-desc">Anna University zonals, state/national sports tournaments, and authorized cultural competitions.</div>
+            </div>
+          </div>
+
+          <div class="od-category-card" onclick="StudentPortal.selectCategory('Other')">
+            <div class="od-cat-icon">🌐</div>
+            <div>
+              <div class="od-cat-title">Other Approved Activity</div>
+              <div class="od-cat-desc">Off-campus placement drives, industrial visits, government examinations, or authorized student excursions.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:16px 0 0 0; margin-top:20px; border-top:1px solid var(--border);">
+          <button type="button" class="btn btn-secondary" onclick="StudentPortal.closeOdModal()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: STRUCTURED APPLICATION FORM -->
+      <div id="odFormStep" class="modal-body" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.backToCategories()" style="display:flex; align-items:center; gap:6px;">
+            <span>← Back to Categories</span>
+          </button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; color:#64748b;">Selected Category:</span>
+            <span id="odSelectedCategoryBadge" class="badge-tag badge-teal" style="font-size:12px;">Technical Symposium</span>
+          </div>
+        </div>
+
+        <!-- Student Profile Read-Only Verification Banner -->
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:16px;">
+          <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+            👤 Authenticated Student Profile (Authoritative Firestore Data)
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; font-size:13px;">
+            <div><strong style="color:#64748b;">Reg No:</strong> <span id="formStudentRegNo" style="font-weight:600; color:var(--primary);">-</span></div>
+            <div><strong style="color:#64748b;">Name:</strong> <span id="formStudentName" style="font-weight:600; color:var(--primary);">-</span></div>
+            <div><strong style="color:#64748b;">Department:</strong> <span id="formStudentDept" style="font-weight:600; color:var(--primary);">-</span></div>
+            <div><strong style="color:#64748b;">Section:</strong> <span id="formStudentSection" style="font-weight:600; color:var(--primary);">-</span></div>
+          </div>
+        </div>
+
+        <div id="odFormErrorAlert" class="alert alert-danger" style="display:none; margin-bottom:16px;"></div>
+
+        <form id="odApplicationForm" onsubmit="event.preventDefault();">
+          <input type="hidden" id="odActiveDraftId" value="">
+          <input type="hidden" id="odSelectedCategory" value="">
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="odEventTitleInput">Event Title / Competition Name *</label>
+            <input id="odEventTitleInput" type="text" class="form-control" placeholder="e.g. National Technical Symposium 'KRANTI 2026' / Smart India Hackathon" required>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+            <div class="form-group">
+              <label for="odOrganizerInput">Organizing Institution / Company *</label>
+              <input id="odOrganizerInput" type="text" class="form-control" placeholder="e.g. PSG College of Technology / IIT Madras" required>
+            </div>
+            <div class="form-group">
+              <label for="odVenueInput">Event Venue / City *</label>
+              <input id="odVenueInput" type="text" class="form-control" placeholder="e.g. Peelamedu, Coimbatore" required>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr 110px; gap:14px; margin-bottom:14px;">
+            <div class="form-group">
+              <label for="odStartDateInput">Start Date *</label>
+              <input id="odStartDateInput" type="date" class="form-control" onchange="StudentPortal.updateDaysCount()" required>
+            </div>
+            <div class="form-group">
+              <label for="odEndDateInput">End Date *</label>
+              <input id="odEndDateInput" type="date" class="form-control" onchange="StudentPortal.updateDaysCount()" required>
+            </div>
+            <div class="form-group">
+              <label for="odDaysInput">Total Days</label>
+              <input id="odDaysInput" type="number" min="1" value="1" class="form-control" readonly style="background:#f1f5f9; font-weight:700;">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="odReasonInput">Academic Purpose & Justification *</label>
+            <textarea id="odReasonInput" rows="3" class="form-control" placeholder="Specify your participation role, paper title, project domain, or team details..." required></textarea>
+          </div>
+
+          <!-- Supporting Document Upload (PDF, JPG, PNG - Max 5MB) -->
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="odDocFileInput">Supporting Document (Brochure / Invitation / Call Letter) <span style="font-weight:400; color:#64748b;">(Optional, Max 5MB)</span></label>
+            <div class="file-upload-box" onclick="document.getElementById('odDocFileInput').click()">
+              <input type="file" id="odDocFileInput" accept=".pdf,image/jpeg,image/png,image/jpg" style="display:none;" onchange="StudentPortal.handleFileSelect(event)">
+              <div style="font-size:24px; margin-bottom:4px;">📎</div>
+              <div style="font-size:13px; font-weight:600; color:var(--primary);">Click or drag file here to attach</div>
+              <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Supported: PDF, JPG, PNG (Maximum file size: 5 MB)</div>
+              <div id="odFileSelectedInfo" style="display:none;"></div>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="padding:16px 0 0 0; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <button type="button" class="btn btn-secondary" onclick="StudentPortal.closeOdModal()">Cancel</button>
+            <div style="display:flex; gap:10px;">
+              <button type="button" id="odSaveDraftBtn" class="btn btn-secondary" onclick="StudentPortal.saveDraftOd()" style="display:flex; align-items:center; gap:6px;">
+                <span>💾 Save Draft</span>
+              </button>
+              <button type="button" id="odPreviewBtn" class="btn btn-primary" onclick="StudentPortal.previewOdApplication()" style="display:flex; align-items:center; gap:6px;">
+                <span>👁️ Preview Application</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- STEP 3: HIGH-FIDELITY PRINTABLE PREVIEW -->
+      <div id="odPreviewStep" class="modal-body" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.editOdApplication()" style="display:flex; align-items:center; gap:6px;">
+            <span>✏️ Edit Form</span>
+          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.printPreview()" style="display:flex; align-items:center; gap:6px;">
+              <span>🖨️ Print Preview</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.saveDraftOd()" style="display:flex; align-items:center; gap:6px;">
+              <span>💾 Save Draft</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Printable Document Area -->
+        <div id="printablePreviewArea" class="printable-document">
+          <div class="printable-document-header">
+            <div style="font-size:12px; font-weight:700; color:#0d9488; letter-spacing:1px; margin-bottom:2px;">ACADEMIC REQUISITION FORM</div>
+            <div class="printable-document-title">GNANAMANI COLLEGE OF TECHNOLOGY</div>
+            <div class="printable-document-sub">(An Autonomous Institution • Affiliated to Anna University, Chennai)</div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">NH-7, A.K. Samuthiram, Pachal (PO), Namakkal - 637 018</div>
+            <div class="printable-doc-type" id="prevDocTypeTitle">OFFICIAL APPLICATION FOR ON-DUTY (OD) PERMISSION</div>
+          </div>
+
+          <table class="printable-table">
+            <tbody>
+              <tr>
+                <th>Registration Number</th>
+                <td id="prevRegNo" style="font-weight:700;">-</td>
+                <th>Student Full Name</th>
+                <td id="prevStudentName" style="font-weight:700;">-</td>
+              </tr>
+              <tr>
+                <th>Department</th>
+                <td id="prevDept">-</td>
+                <th>Class / Section</th>
+                <td id="prevSection" style="font-weight:600;">-</td>
+              </tr>
+              <tr>
+                <th id="prevCatLabel">OD Category</th>
+                <td id="prevCategory" style="font-weight:600; color:#0d9488;">-</td>
+                <th id="prevDurLabel">Duration</th>
+                <td id="prevDuration" style="font-weight:600;">-</td>
+              </tr>
+              <tr>
+                <th id="prevEventTitleLabel">Event Title</th>
+                <td colspan="3" id="prevEventTitle" style="font-weight:700; color:#0b132b;">-</td>
+              </tr>
+              <tr id="prevOrgVenueRow">
+                <th id="prevOrganizerLabel">Organizing Body</th>
+                <td id="prevOrganizer">-</td>
+                <th id="prevVenueLabel">Event Venue / City</th>
+                <td id="prevVenue">-</td>
+              </tr>
+              <tr>
+                <th id="prevReasonLabel">Purpose & Justification</th>
+                <td colspan="3" id="prevReason" style="white-space:pre-wrap; line-height:1.6;">-</td>
+              </tr>
+              <tr>
+                <th>Supporting Document</th>
+                <td colspan="3" id="prevDocumentStatus" style="font-size:12px;">No document attached</td>
+              </tr>
+            </tbody>
+          </table>
+
+
+          <!-- Digital Verification Blocks -->
+          <div id="prevVerificationBlocks" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:24px; text-align:center; font-size:11.5px; border-top:1px dashed #cbd5e1; padding-top:18px;">
+            <div id="prevAdvBlock">
+              <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(Pending Verification)</div>
+              <div id="prevAdvTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Class Advisor</div>
+              <div id="prevAdvSigner" style="font-size:10.5px; color:#64748b;">Assigned Class Advisor</div>
+            </div>
+            <div id="prevHodBlock">
+              <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(In Queue)</div>
+              <div id="prevHodTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Head of Department (CSE)</div>
+              <div id="prevHodSigner" style="font-size:10.5px; color:#64748b;">Dr. K. Gopinath</div>
+            </div>
+            <div id="prevPrincipalBlock" style="display:none;">
+              <div style="min-height:36px; color:#94a3b8; font-style:italic; display:flex; align-items:center; justify-content:center;">(In Queue)</div>
+              <div id="prevPrinTitle" style="border-top:1px solid #94a3b8; padding-top:4px; font-weight:700;">Principal</div>
+              <div id="prevPrinSigner" style="font-size:10.5px; color:#64748b;">Dr. B. Sanjay Gandhi</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:16px 0 0 0; margin-top:16px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn btn-secondary" onclick="StudentPortal.editOdApplication()">✏️ Edit Details</button>
+          <button type="button" id="odSubmitBtn" class="btn btn-primary btn-lg" onclick="StudentPortal.promptSubmitConfirmation()" style="display:flex; align-items:center; gap:8px;">
+            <span>🚀 Submit Application</span>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRMATION MODAL BEFORE FINAL SUBMISSION -->
+  <div id="odConfirmModal" class="modal-overlay" style="display:none; z-index:1100;">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title">⚠️ Confirm Official Submission</div>
+        <button class="modal-close" onclick="StudentPortal.closeConfirmModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <p style="font-size:14px; color:#1e293b; margin-bottom:12px;">
+          You are about to submit your On-Duty request for:
+        </p>
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:12px; font-size:13px; margin-bottom:14px;">
+          <div><strong>Event:</strong> <span id="confirmModalEventTitle">-</span></div>
+          <div><strong>Dates:</strong> <span id="confirmModalDates">-</span></div>
+          <div><strong>Routing to:</strong> <span id="confirmModalAdvisor">-</span></div>
+        </div>
+        <p style="font-size:12px; color:#64748b; margin-bottom:0;">
+          🛡️ Once officially submitted, this application enters the academic audit chain and cannot be edited. Accidental duplicate submissions on these dates will be blocked automatically.
+        </p>
+      </div>
+      <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" onclick="StudentPortal.closeConfirmModal()">Go Back</button>
+        <button type="button" id="confirmSubmitFinalBtn" class="btn btn-primary" onclick="StudentPortal.confirmSubmitOd()">Yes, Confirm & Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION DETAILS & APPROVAL HISTORY MODAL -->
+  <div id="odDetailsModal" class="modal-overlay" style="display:none; z-index:1050;">
+    <div class="modal-content" style="max-width:700px; width:95%;">
+      <div class="modal-header">
+        <div class="modal-title">📋 Request Details & Official Workflow Audit (<span id="detModalId">-</span>)</div>
+        <button class="modal-close" onclick="App.closeRequestDetailsModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h3 id="detEventTitle" style="font-size:16px; font-weight:800; color:var(--primary); margin:0;">Event Title</h3>
+            <div id="detCategory" style="font-size:12px; color:#64748b; margin-top:2px;">Category</div>
+          </div>
+          <div id="detStatusBadge"><span class="badge-tag badge-warning">Pending</span></div>
+        </div>
+
+        <table class="data-table" style="font-size:12.5px; margin-bottom:16px;">
+          <tbody>
+            <tr>
+              <th style="width:30%;">Student Applicant</th>
+              <td id="detStudentInfo">-</td>
+            </tr>
+            <tr>
+              <th>Dept & Section</th>
+              <td id="detDeptSection">-</td>
+            </tr>
+            <tr>
+              <th>Assigned Class Advisor</th>
+              <td id="detAdvisorInfo">-</td>
+            </tr>
+            <tr>
+              <th>Host / Organizer</th>
+              <td id="detOrganizer">-</td>
+            </tr>
+            <tr>
+              <th>Venue</th>
+              <td id="detVenue">-</td>
+            </tr>
+            <tr>
+              <th>Dates & Duration</th>
+              <td id="detDates">-</td>
+            </tr>
+            <tr>
+              <th>Reason / Statement</th>
+              <td id="detReason" style="white-space:pre-wrap;">-</td>
+            </tr>
+            <tr>
+              <th>Supporting Document</th>
+              <td id="detDocument">-</td>
+            </tr>
+            <tr>
+              <th>Submitted At</th>
+              <td id="detSubmittedAt">-</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Approval Timeline -->
+        <h4 style="font-size:13px; font-weight:700; color:var(--primary); margin-bottom:8px;">Approval History & Official Remarks:</h4>
+        <div id="detApprovalTimeline" class="approval-timeline">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Official Authorized Digital Signatures -->
+        <h4 style="font-size:13px; font-weight:700; color:var(--primary); margin:16px 0 8px 0;">🏛️ Official Authorized Digital Signatures:</h4>
+        <div id="detDigitalSignatures" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
+          <!-- Dynamically populated signature cards -->
+        </div>
+
+        <!-- Authorized Review & Decision Action Panel -->
+        <div id="detActionPanel"></div>
+      </div>
+      <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div id="detActionExtra"></div>
+        <button type="button" class="btn btn-secondary" onclick="App.closeRequestDetailsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- START NEW CHAT MODAL WITH STAFF AND STUDENTS CATEGORIES -->
+  <div id="newChatModal" class="modal-overlay" style="display:none; z-index:1060;">
+    <div class="modal-content" style="max-width:520px; width:95%;">
+      <div class="modal-header">
+        <div class="modal-title">💬 Start Direct Conversation</div>
+        <button class="modal-close" onclick="ChatApp.closeNewChatModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <!-- Category Segmented Control -->
+        <div class="new-chat-tabs" style="display:flex; gap:6px; margin-bottom:12px;">
+          <button id="catTabAll" class="new-chat-tab active" onclick="ChatApp.switchContactCategory('all')">
+            👥 All Directory
+          </button>
+          <button id="catTabStaff" class="new-chat-tab" onclick="ChatApp.switchContactCategory('staff')">
+            👨‍🏫 Faculty & Advisors
+          </button>
+          <button id="catTabStudents" class="new-chat-tab" onclick="ChatApp.switchContactCategory('students')">
+            🎓 Students
+          </button>
+        </div>
+
+        <p id="newChatHelpText" style="font-size:12px; color:#64748b; margin-bottom:10px;">
+          Search registered students, advisors, HOD, and principal to start or resume a conversation:
+        </p>
+
+        <div style="position:relative; margin-bottom:12px;">
+          <input type="text" id="newChatSearchInput" class="form-control" placeholder="Search directory by name, reg number, staff ID, role, or section..." oninput="ChatApp.handleDirectorySearchInput(this.value)">
+        </div>
+
+        <!-- Unified Registered User Directory List -->
+        <div id="newChatDirectoryList" style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+          <!-- Dynamically populated from /api/chat/users/search -->
+        </div>
+
+        <!-- Backward Compatibility Containers -->
+        <div id="newChatContactsList" style="display:none;"></div>
+        <div id="newChatStudentsList" style="display:none;"></div>
+      </div>
+      <div class="modal-footer" style="padding:12px 20px; border-top:1px solid var(--border);">
+        <button type="button" class="btn btn-secondary" onclick="ChatApp.closeNewChatModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT IMAGE LIGHTBOX MODAL -->
+  <div id="chatImageModal" class="modal-overlay chat-image-modal-overlay" style="display:none; z-index:1080;" onclick="ChatApp.closeImageModal()">
+    <div class="chat-image-modal-card" onclick="event.stopPropagation()">
+      <div class="chat-image-modal-header">
+        <span id="chatImageModalTitle" style="font-size:13px; font-weight:600; color:#ffffff;">Image Preview</span>
+        <div style="display:flex; gap:8px;">
+          <a id="chatImageModalDownload" href="#" download class="btn btn-sm btn-outline-light" style="padding:3px 10px; font-size:12px; color:#ffffff; border-color:rgba(255,255,255,0.4);">⬇️ Download</a>
+          <button type="button" class="modal-close" style="color:#ffffff; font-size:20px; line-height:1;" onclick="ChatApp.closeImageModal()">&times;</button>
+        </div>
+      </div>
+      <div class="chat-image-modal-body">
+        <img id="chatModalImage" src="" alt="Full preview" class="chat-modal-full-img">
+      </div>
+      <div id="chatModalCaption" class="chat-image-modal-caption"></div>
+    </div>
+  </div>
+
+  <!-- 2. Leave Application Modal (Day Scholar & Hosteller) -->
+  <div id="leaveModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <div id="leaveModalTitle" class="modal-title">🏖️ Student Leave Application</div>
+        <button class="modal-close" onclick="StudentPortal.closeLeaveModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Student Classification Profile Banner -->
+        <div class="student-profile-classification-box" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap:8px;">
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student</span>
+            <strong id="leaveStudentName" style="color:var(--primary); font-size:12.5px;">-</strong>
+            <span id="leaveStudentRegNo" style="font-size:11px; color:#64748b; display:block;">-</span>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Department</span>
+            <strong id="leaveStudentDept" style="color:var(--primary); font-size:12.5px;">CSE</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Academic Year</span>
+            <strong id="leaveStudentYear" style="color:var(--primary); font-size:12.5px;">IV Year</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student Type</span>
+            <span id="leaveStudentTypeBadge" class="badge-tag badge-teal" style="font-size:11px; padding:2px 8px;">Day Scholar</span>
+          </div>
+        </div>
+
+        <!-- Leave Category Selection Tabs -->
+        <div style="display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+          <button id="leaveTabDayScholar" type="button" class="btn btn-sm btn-primary" onclick="StudentPortal.switchLeaveCategory('Day Scholar')" style="flex:1;">
+            🚶 Day Scholar Leave Letter
+          </button>
+          <button id="leaveTabHosteller" type="button" class="btn btn-sm btn-secondary" onclick="StudentPortal.switchLeaveCategory('Hosteller')" style="flex:1;">
+            🏠 Hosteller Leave Letter
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label for="leaveTypeInput">Leave Purpose / Subtype *</label>
+          <select id="leaveTypeInput" class="form-control">
+            <option value="Casual Leave">Casual Leave</option>
+            <option value="Medical / Sick Leave">Medical / Sick Leave</option>
+            <option value="Family Event / Function">Family Event / Function</option>
+            <option value="Academic Examination Prep">Academic Examination Prep</option>
+            <option value="Other">Other Emergency Leave</option>
+          </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 100px; gap:12px;">
+          <div class="form-group">
+            <label for="leaveStartInput">Start Date *</label>
+            <input id="leaveStartInput" type="date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="leaveEndInput">End Date *</label>
+            <input id="leaveEndInput" type="date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="leaveDaysInput">Days</label>
+            <input id="leaveDaysInput" type="number" min="1" value="1" class="form-control" required>
+          </div>
+        </div>
+
+        <!-- Day Scholar Specific Section -->
+        <div id="leaveDayScholarFields">
+          <div class="form-group">
+            <label for="leaveParentPhoneDay">Parent / Guardian Contact Phone *</label>
+            <input id="leaveParentPhoneDay" type="tel" class="form-control" placeholder="+91 98765 43210" required>
+          </div>
+        </div>
+
+        <!-- Hosteller Specific Section -->
+        <div id="leaveHostellerFields" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px; margin-bottom:14px;">
+          <div style="font-weight:700; color:#166534; font-size:12px; margin-bottom:8px;">🏠 Hostel Residence & Outing Particulars</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="form-group" style="margin-bottom:8px;">
+              <label for="leaveHostelBlockRoom" style="font-size:12px;">Hostel Block & Room No *</label>
+              <input id="leaveHostelBlockRoom" type="text" class="form-control" placeholder="e.g. Kaveri Block, Room 304">
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label for="leaveParentPhoneHostel" style="font-size:12px;">Parent / Guardian Phone *</label>
+              <input id="leaveParentPhoneHostel" type="tel" class="form-control" placeholder="+91 98765 43210">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="form-group" style="margin-bottom:8px;">
+              <label for="leaveOutTime" style="font-size:12px;">Expected Departure Time</label>
+              <input id="leaveOutTime" type="time" class="form-control">
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label for="leaveInTime" style="font-size:12px;">Expected Return Time</label>
+              <input id="leaveInTime" type="time" class="form-control">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:4px;">
+            <label for="leaveDestination" style="font-size:12px;">Destination / Home Address</label>
+            <input id="leaveDestination" type="text" class="form-control" placeholder="e.g. Native place / Parent home address">
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <input id="leaveParentConsentCheck" type="checkbox" checked>
+            <label for="leaveParentConsentCheck" style="font-size:11.5px; color:#166534; margin:0; cursor:pointer;">Parent verbal/written consent confirmed for hostel departure</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="leaveReasonInput">Reason for Absence *</label>
+          <textarea id="leaveReasonInput" rows="3" class="form-control" placeholder="Provide specific reason for absence..." required></textarea>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-secondary" onclick="StudentPortal.closeLeaveModal()">Cancel</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary" onclick="StudentPortal.previewLeaveApplication()">👁️ Preview Application</button>
+          <button id="leaveSubmitBtn" class="btn btn-primary" onclick="StudentPortal.submitLeave()">Submit Leave Letter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Bonafide Request Modal -->
+  <div id="bonafideModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">📜 Request Bonafide Certificate</div>
+        <button class="modal-close" onclick="StudentPortal.closeBonafideModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="bonafidePurposeInput">Certificate Purpose *</label>
+          <select id="bonafidePurposeInput" class="form-control">
+            <option value="Passport Application">Passport Application</option>
+            <option value="Bank Education Loan">Bank Education Loan</option>
+            <option value="State / Central Scholarship">State / Central Scholarship</option>
+            <option value="Industry Internship">Industry Internship</option>
+            <option value="Bus / Train Pass">Bus / Train Pass</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="bonafideYearInput">Academic Year</label>
+          <input id="bonafideYearInput" type="text" class="form-control" value="2025-2026" readonly>
+        </div>
+        <div class="form-group">
+          <label for="bonafideDetailsInput">Application Details / Remarks *</label>
+          <textarea id="bonafideDetailsInput" rows="3" class="form-control" placeholder="Specify authority or institution requiring the certificate..." required></textarea>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-secondary" onclick="StudentPortal.closeBonafideModal()">Cancel</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary" onclick="StudentPortal.previewBonafideApplication()">👁️ Preview Application</button>
+          <button id="bonafideSubmitBtn" class="btn btn-primary" onclick="StudentPortal.submitBonafide()">Request Certificate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Student Complaint Modal (Direct to Principal) -->
+  <div id="complaintModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:620px;">
+      <div class="modal-header">
+        <div class="modal-title">🚨 Confidential Complaint to Principal</div>
+        <button class="modal-close" onclick="StudentPortal.closeComplaintModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" style="margin-bottom:12px;">
+          <strong>Direct Principal Communication:</strong> This complaint connects directly to Principal Dr. B. Sanjay Gandhi. Class Advisors and HODs cannot view your submission.
+        </div>
+
+        <!-- Student Profile Classification Summary (Automatically obtained from profile) -->
+        <div class="student-profile-classification-box" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap:8px;">
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student</span>
+            <strong id="cmpStudentName" style="color:var(--primary); font-size:12.5px;">-</strong>
+            <span id="cmpStudentRegNo" style="font-size:11px; color:#64748b; display:block;">-</span>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Department</span>
+            <strong id="cmpStudentDept" style="color:var(--primary); font-size:12.5px;">CSE</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Academic Year</span>
+            <strong id="cmpStudentYear" style="color:var(--primary); font-size:12.5px;">IV Year</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student Type</span>
+            <span id="cmpStudentTypeBadge" class="badge-tag badge-teal" style="font-size:11px; padding:2px 8px;">Day Scholar</span>
+          </div>
+        </div>
+
+        <form id="complaintForm">
+          <div class="form-group">
+            <label for="cmpCategoryInput">Category *</label>
+            <select id="cmpCategoryInput" class="form-control" required>
+              <option value="Academic">Academic</option>
+              <option value="Infrastructure / Facilities">Infrastructure / Facilities</option>
+              <option value="Hostel / Mess">Hostel / Mess</option>
+              <option value="Discipline / Safety">Discipline / Safety</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="cmpSubjectInput">Subject / Headline *</label>
+            <input id="cmpSubjectInput" type="text" class="form-control" placeholder="Brief headline of the grievance" required>
+          </div>
+
+          <div class="form-group">
+            <label for="cmpDescInput">Detailed Description *</label>
+            <textarea id="cmpDescInput" rows="4" class="form-control" placeholder="Provide factual details, dates, and specifics..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="cmpSupportInput">Supporting Details (Optional)</label>
+            <input id="cmpSupportInput" type="text" class="form-control" placeholder="e.g. Room number, lab equipment ID, bus route">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="StudentPortal.closeComplaintModal()">Cancel</button>
+        <button id="cmpSubmitBtn" class="btn btn-navy" onclick="StudentPortal.submitComplaint()">Submit Directly to Principal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Advisor Review Modal -->
+  <div id="advisorReviewModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">📥 Review Section OD Request (<span id="revModalId"></span>)</div>
+        <button class="modal-close" onclick="AdvisorPortal.closeReviewModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; margin-bottom:14px;">
+          <div><strong>Student Name:</strong> <span id="revStudentName"></span></div>
+          <div><strong>Register No:</strong> <span id="revRegNo"></span></div>
+          <div><strong>Section:</strong> <span id="revSection"></span></div>
+          <div><strong>OD Category:</strong> <span id="revOdType"></span></div>
+          <div><strong>Event Title:</strong> <span id="revEventTitle"></span></div>
+          <div><strong>Organizer:</strong> <span id="revOrganizer"></span></div>
+          <div><strong>Dates:</strong> <span id="revDates"></span></div>
+          <div><strong>Venue:</strong> <span id="revVenue"></span></div>
+        </div>
+
+        <div style="background:#f8fafc; border:1px solid var(--border); padding:10px 12px; font-size:13px; margin-bottom:16px; border-radius:6px;">
+          <strong>Reason:</strong> <span id="revReason"></span>
+          <div id="revDocBox" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="advisorReviewCommentInput" style="font-size:12.5px; font-weight:600; color:#334155;">Advisor Review Remarks / Recommendation (Optional):</label>
+          <input type="text" id="advisorReviewCommentInput" class="form-control" placeholder="e.g., Attendance and records verified. Recommended for approval." style="font-size:12.5px;">
+        </div>
+
+        <div id="rejectionReasonGroup" class="form-group" style="display:none;">
+          <label for="rejectionReasonInput" style="color:var(--danger);">Mandatory Rejection Reason *</label>
+          <textarea id="rejectionReasonInput" rows="2" class="form-control" placeholder="State clear academic or attendance justification for rejecting..."></textarea>
+          <div style="margin-top:8px;">
+            <button class="btn btn-danger btn-sm" onclick="AdvisorPortal.confirmReject()">Confirm Rejection</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="advisorActionButtons">
+        <button class="btn btn-danger" onclick="AdvisorPortal.toggleRejectBox()">Reject Request</button>
+        <button class="btn btn-success" onclick="AdvisorPortal.approveRequest()">Approve & Forward to HOD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. HOD Review Modal -->
+  <div id="hodReviewModal" class="modal-overlay" style="display:none; z-index:1050;">
+    <div class="modal-content" style="max-width:720px; width:95%;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="modal-title" style="margin:0;">📋 HOD Review: Request <span id="hodRevModalId" class="ref-badge">-</span></div>
+          <span id="hodRevStatusBadge" class="badge-tag badge-warning">⏳ Awaiting HOD Review</span>
+        </div>
+        <button class="modal-close" onclick="HodPortal.closeReviewModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:20px; max-height:calc(85vh - 120px); overflow-y:auto;">
+        <!-- Student & Request Info -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px; margin-bottom:14px; background:#f8fafc; padding:14px; border-radius:8px; border:1px solid var(--border);">
+          <div><strong>Student Name:</strong> <span id="hodRevStudentName">-</span></div>
+          <div><strong>Reg No & Section:</strong> <span id="hodRevRegNo">-</span></div>
+          <div><strong>Request Type:</strong> <span id="hodRevOdType" class="badge-tag badge-info">-</span></div>
+          <div><strong>Department:</strong> <span id="hodRevDept">Computer Science & Engineering</span></div>
+          <div><strong>Event Title / Purpose:</strong> <span id="hodRevEventTitle">-</span></div>
+          <div><strong>Host / Organizer:</strong> <span id="hodRevOrganizer">-</span></div>
+          <div><strong>Venue:</strong> <span id="hodRevVenue">-</span></div>
+          <div><strong>Dates & Duration:</strong> <span id="hodRevDates">-</span></div>
+        </div>
+
+        <div style="background:#ffffff; border:1px solid var(--border); padding:12px 14px; font-size:13px; margin-bottom:14px; border-radius:8px;">
+          <strong style="color:var(--primary);">Statement / Reason:</strong>
+          <div id="hodRevReason" style="margin-top:4px; color:#334155; white-space:pre-wrap;">-</div>
+          <div id="hodRevDocBox" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- Previous Class Advisor Verification Card -->
+        <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; padding:12px 14px; font-size:13px; margin-bottom:14px; border-radius:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="color:#15803d; font-size:13px;">👨‍🏫 Stage 1: Class Advisor Endorsement & Verification</strong>
+            <span class="badge-tag badge-approved">✓ Advisor Approved</span>
+          </div>
+          <div id="hodRevAdvisorNote" style="color:#166534; font-size:12.5px;">-</div>
+        </div>
+
+        <!-- Approval Workflow Stepper & Audit Log -->
+        <div style="margin-bottom:14px;">
+          <strong style="color:var(--primary); font-size:13px;">📜 Approval Workflow Progress & Audit Timeline</strong>
+          <div id="hodRevTimeline" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="hodReviewCommentInput" style="font-size:12.5px; font-weight:600; color:#334155;">HOD Endorsement Remarks (Optional):</label>
+          <input type="text" id="hodReviewCommentInput" class="form-control" placeholder="e.g., Department sanction granted." style="font-size:12.5px;">
+        </div>
+
+        <!-- Rejection Reason Group -->
+        <div id="hodRejectionReasonGroup" class="form-group" style="display:none; background:#fef2f2; border:1.5px solid #fecaca; padding:14px; border-radius:8px;">
+          <label for="hodRejectionReasonInput" style="color:var(--danger); font-weight:700;">Mandatory HOD Rejection Reason *</label>
+          <textarea id="hodRejectionReasonInput" rows="2" class="form-control" placeholder="State official reason for HOD rejection (visible to student & advisor)..."></textarea>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button class="btn btn-danger btn-sm" onclick="HodPortal.confirmReject()">Confirm HOD Rejection</button>
+            <button class="btn btn-secondary btn-sm" onclick="HodPortal.toggleRejectBox()">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="hodActionButtons" style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-secondary" onclick="HodPortal.closeReviewModal()">Close</button>
+        <div style="display:flex; gap:10px;">
+          <button id="hodRejectBtn" class="btn btn-danger" onclick="HodPortal.toggleRejectBox()">Reject Request</button>
+          <button id="hodApproveBtn" class="btn btn-success" onclick="HodPortal.approveRequest()">Approve Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Principal Complaint Modal -->
+  <div id="principalComplaintModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:640px;">
+      <div class="modal-header">
+        <div class="modal-title">🚨 Principal Review: Student Grievance (<span id="prinCmpId"></span>)</div>
+        <button class="modal-close" onclick="PrincipalPortal.closeComplaintModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Student Classification & Profile Card -->
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:14px; display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:8px;">
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student</span>
+            <strong id="prinCmpStudent" style="color:var(--primary); font-size:12.5px;">-</strong>
+            <span id="prinCmpRegSection" style="font-size:11px; color:#64748b; display:block;">-</span>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Department</span>
+            <strong id="prinCmpDept" style="color:var(--primary); font-size:12.5px;">CSE</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Academic Year</span>
+            <strong id="prinCmpYear" style="color:var(--primary); font-size:12.5px;">IV Year</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Student Type</span>
+            <span id="prinCmpStudentType" class="badge-tag badge-teal" style="font-size:11px; padding:2px 8px;">Day Scholar</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div><strong style="color:var(--primary);">Category:</strong> <span id="prinCmpCategory" class="badge-tag badge-info">General</span></div>
+          <div style="font-size:11.5px; color:#64748b;">Confidential direct submission</div>
+        </div>
+
+        <div style="background:#ffffff; border:1px solid var(--border); padding:12px 14px; font-size:13px; margin-bottom:14px; border-radius:8px;">
+          <div style="font-weight:700; color:var(--primary); font-size:13.5px; margin-bottom:6px;">Subject: <span id="prinCmpSubject">-</span></div>
+          <div style="color:#334155; line-height:1.5; white-space:pre-wrap; margin-bottom:8px;"><strong>Description:</strong> <span id="prinCmpDesc">-</span></div>
+          <div style="color:#64748b; font-size:12px; border-top:1px dashed #e2e8f0; padding-top:6px;">
+            <strong>Supporting Details:</strong> <span id="prinCmpSupport">None provided</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="prinCmpStatusSelect">Update Complaint Status</label>
+          <select id="prinCmpStatusSelect" class="form-control">
+            <option value="RECEIVED">RECEIVED (Acknowledged by Principal)</option>
+            <option value="UNDER_REVIEW">UNDER REVIEW (Investigation in progress)</option>
+            <option value="RESOLVED">RESOLVED (Action taken / grievance addressed)</option>
+            <option value="CLOSED">CLOSED (Formally concluded & recorded)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="prinCmpResponseInput">Principal Official Resolution / Feedback (Notified to Student)</label>
+          <textarea id="prinCmpResponseInput" rows="3" class="form-control" placeholder="Enter official executive action, directives issued, or resolution note..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between;">
+        <button id="prinCmpDownloadBtn" class="btn btn-secondary" onclick="PrincipalPortal.downloadComplaintPdf()" style="display:inline-flex; align-items:center; gap:6px;">
+          📥 Download Record (PDF)
+        </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary" onclick="PrincipalPortal.closeComplaintModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="PrincipalPortal.saveComplaintResponse()">Save & Notify Student</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Principal OD Approval Modal -->
+  <div id="principalOdModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">📋 Principal Sanction: OD (<span id="prinOdId"></span>)</div>
+        <button class="modal-close" onclick="PrincipalPortal.closeOdModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; margin-bottom:12px;">
+          <div><strong>Student:</strong> <span id="prinOdStudent"></span></div>
+          <div><strong>OD Category:</strong> <span id="prinOdType"></span></div>
+          <div><strong>Event Title:</strong> <span id="prinOdEventTitle"></span></div>
+          <div><strong>Organizer:</strong> <span id="prinOdOrganizer"></span></div>
+          <div><strong>Venue:</strong> <span id="prinOdVenue"></span></div>
+          <div><strong>Dates:</strong> <span id="prinOdDates"></span></div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid var(--border); padding:10px 12px; font-size:13px; margin-bottom:14px; border-radius:6px;">
+          <strong>Reason:</strong> <span id="prinOdReason"></span>
+          <div id="prinOdDocBox" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- Prior Institutional Endorsements with Signatures -->
+        <div id="prinOdPriorSignatures" style="margin-bottom:14px;"></div>
+
+        <div id="prinOdRejectionBox" class="form-group" style="display:none;">
+          <label for="prinOdRejectionInput" style="color:var(--danger);">Principal Rejection Reason *</label>
+          <textarea id="prinOdRejectionInput" rows="2" class="form-control" placeholder="State reason for Principal rejection..."></textarea>
+          <div style="margin-top:8px;">
+            <button class="btn btn-danger btn-sm" onclick="PrincipalPortal.confirmRejectOd()">Confirm Principal Rejection</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="prinOdActionButtons">
+        <button class="btn btn-danger" onclick="PrincipalPortal.toggleRejectOdBox()">Reject</button>
+        <button class="btn btn-success" onclick="PrincipalPortal.approveOd()">Grant Principal Sanction</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. QR Document Verification Modal -->
+  <div id="qrCertificateModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">🛡️ Official OD Document with Verifiable QR Code</div>
+        <button class="modal-close" onclick="StudentPortal.closeQrModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="qr-doc-box">
+          <div style="text-align:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+            <h2 style="font-size:17px; font-weight:800; color:var(--primary);">GNANAMANI COLLEGE OF TECHNOLOGY</h2>
+            <h3 style="font-size:12px; color:#64748b; font-weight:500;">(Autonomous Institution - Affiliated to Anna University)</h3>
+            <h4 id="qrCertDocTitle" style="font-size:13px; font-weight:700; color:var(--accent-teal); margin-top:4px;">OFFICIAL ON-DUTY (OD) SANCTION CERTIFICATE</h4>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; margin-bottom:14px;">
+            <div><strong>Reference ID:</strong> <span id="qrCertModalId"></span></div>
+            <div><strong>Student Details:</strong> <span id="qrCertStudent"></span></div>
+            <div><strong>Category:</strong> <span id="qrCertType"></span></div>
+            <div><strong>Sanctioned Dates:</strong> <span id="qrCertDates"></span></div>
+            <div><strong>Host / Venue:</strong> <span id="qrCertVenue"></span></div>
+            <div><strong>Status:</strong> <span style="color:var(--success); font-weight:700;">APPROVED & SANCTIONED</span></div>
+          </div>
+
+          <div class="qr-cert-box">
+            <div class="qr-code-graphic">
+              <!-- Visual QR Representation -->
+              <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="1.8">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+                <rect x="6" y="6" width="1" height="1" fill="#0f172a"></rect>
+                <rect x="17" y="6" width="1" height="1" fill="#0f172a"></rect>
+                <rect x="6" y="17" width="1" height="1" fill="#0f172a"></rect>
+                <path d="M14 14h3v3h-3z M17 17h4v4h-4z M14 20h3v1h-3z"></path>
+              </svg>
+            </div>
+            <div class="qr-cert-details">
+              <strong style="color:var(--accent-teal);">Verification Code:</strong> <code id="qrCertCode" style="font-weight:700;"></code><br>
+              <span class="badge-tag badge-approved" style="margin-top:6px;">Digitally Signed & Validated</span>
+            </div>
+          </div>
+
+          <div class="doc-signatures" id="qrDocSignatures">
+            <!-- Dynamically populated by StudentPortal.openQrModal based on exact workflow -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="StudentPortal.closeQrModal()">Close</button>
+        <button class="btn btn-primary" onclick="StudentPortal.printQrCertificate()">Print Certificate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 12A. VIEW ANNOUNCEMENT DETAILS MODAL ==================== -->
+  <div id="announcementDetailsModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 650px; width: 95%;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="annDetailsModalBadge" class="badge-tag"></span>
+          <div class="modal-title" style="margin:0;">Institutional Notice Details</div>
+        </div>
+        <button class="modal-close" onclick="AnnouncementApp.closeDetailsModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div id="annDetailsModalAvatar" style="width:36px; height:36px; border-radius:50%; background:#e0f2fe; color:#0369a1; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid #bae6fd; flex-shrink:0;"></div>
+            <div>
+              <div id="annDetailsModalSender" style="font-weight:700; color:var(--primary); font-size:14px;"></div>
+              <div id="annDetailsModalTarget" style="font-size:11.5px; color:#64748b; font-weight:600;"></div>
+            </div>
+          </div>
+          <div id="annDetailsModalTime" style="font-size:12px; color:#64748b; font-weight:600;"></div>
+        </div>
+
+        <h3 id="annDetailsModalTitle" style="font-size:18px; font-weight:800; color:var(--primary); margin:0 0 12px 0; line-height:1.35;"></h3>
+
+        <div id="annDetailsModalMessage" style="font-size:14px; color:#334155; line-height:1.6; white-space:pre-wrap; background:#f8fafc; padding:16px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:16px;"></div>
+
+        <div id="annDetailsModalReadStatus" style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#64748b; padding-top:10px; border-top:1px dashed #e2e8f0;">
+          <span id="annDetailsModalReadNote">Verified Institutional Record</span>
+          <div id="annDetailsModalActionSlot"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding: 12px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-secondary" onclick="AnnouncementApp.closeDetailsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 12. POST ANNOUNCEMENT MODAL ==================== -->
+  <div id="postAnnouncementModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 600px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title">📢 Publish Institutional Announcement</div>
+        <button class="modal-close" onclick="AnnouncementApp.closePostAnnouncementModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="postAnnouncementForm" onsubmit="AnnouncementApp.submitAnnouncement(event)">
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="announcementPriority" style="font-weight:700; font-size:13px;">Priority Level <span style="color:#ef4444;">*</span></label>
+            <select id="announcementPriority" class="form-control" required>
+              <option value="NORMAL">ℹ️ Normal / General Information</option>
+              <option value="IMPORTANT">⚠️ Important Notice</option>
+              <option value="URGENT">🚨 Urgent Circular (Top Banner Alert)</option>
+            </select>
+          </div>
+
+          <!-- Multi-Select Target Audience Component -->
+          <div class="form-group" style="margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label style="font-weight:700; font-size:13px; margin:0;">
+                Target Audience (Multi-Select) <span style="color:#ef4444;">*</span>
+              </label>
+              <span id="annAudienceCountBadge" class="badge-tag badge-teal" style="font-size:11px;">1 selected</span>
+            </div>
+
+            <!-- Checkbox Selection Box -->
+            <div id="audienceCheckboxContainer" style="border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; background:#f8fafc;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <label id="lblAudience_ALL" class="audience-checkbox-label" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#f0fdfa; border:1px solid #0d9488; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; color:#0f172a; transition:all 0.15s ease;">
+                  <input type="checkbox" id="annAudience_ALL" value="ALL" checked onchange="AnnouncementApp.onAudienceCheckboxChange('ALL')" style="width:16px; height:16px; accent-color:#0d9488; cursor:pointer;">
+                  <span>🏛️ All Students</span>
+                </label>
+
+                <label id="lblAudience_CSEA" class="audience-checkbox-label" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; color:#0f172a; transition:all 0.15s ease;">
+                  <input type="checkbox" id="annAudience_CSEA" value="CSE-A" onchange="AnnouncementApp.onAudienceCheckboxChange('CSE-A')" style="width:16px; height:16px; accent-color:#0d9488; cursor:pointer;">
+                  <span>👥 CSE-A Students</span>
+                </label>
+
+                <label id="lblAudience_CSEB" class="audience-checkbox-label" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; color:#0f172a; transition:all 0.15s ease;">
+                  <input type="checkbox" id="annAudience_CSEB" value="CSE-B" onchange="AnnouncementApp.onAudienceCheckboxChange('CSE-B')" style="width:16px; height:16px; accent-color:#0d9488; cursor:pointer;">
+                  <span>👥 CSE-B Students</span>
+                </label>
+
+                <label id="lblAudience_CSEC" class="audience-checkbox-label" style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; color:#0f172a; transition:all 0.15s ease;">
+                  <input type="checkbox" id="annAudience_CSEC" value="CSE-C" onchange="AnnouncementApp.onAudienceCheckboxChange('CSE-C')" style="width:16px; height:16px; accent-color:#0d9488; cursor:pointer;">
+                  <span>👥 CSE-C Students</span>
+                </label>
+              </div>
+
+              <!-- Selected Audiences Display & Removable Chips -->
+              <div id="annSelectedAudienceContainer" style="margin-top:10px; padding-top:10px; border-top:1px dashed #cbd5e1;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                  <span id="annSelectedAudienceText" style="font-size:12.5px; font-weight:700; color:#0369a1;">All Students selected</span>
+                  <div id="annSelectedAudienceChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                </div>
+                <div id="annAudienceNotice" style="font-size:11.5px; color:#475569; margin-top:5px; line-height:1.4;">
+                  🏛️ This announcement will broadcast to all eligible student accounts across the college.
+                </div>
+              </div>
+
+              <!-- Advisor Restriction Alert Box (Hidden by default, shown for Advisors) -->
+              <div id="annAdvisorRestrictionNotice" style="display:none; margin-top:10px; padding:8px 12px; background:#fef3c7; border:1px solid #fde68a; border-radius:6px; font-size:11.5px; color:#92400e; font-weight:600;">
+                🔒 Class Advisor Restriction: You are authorized to publish official announcements to your assigned section only. Other section selections are locked.
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="announcementTitle" style="font-weight:700; font-size:13px;">Announcement Title <span style="color:#ef4444;">*</span></label>
+            <input id="announcementTitle" type="text" class="form-control" required placeholder="e.g. Semester Fee Payment Schedule & Final Date">
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="announcementMessage" style="font-weight:700; font-size:13px;">Message Content <span style="color:#ef4444;">*</span></label>
+            <textarea id="announcementMessage" class="form-control" rows="4" required placeholder="Type the complete circular or notice details..."></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:18px;">
+            <label for="announcementExpiryDate" style="font-weight:700; font-size:13px;">Optional Expiry Date</label>
+            <input id="announcementExpiryDate" type="date" class="form-control">
+            <small style="color:#64748b; font-size:11px;">Notice will automatically archive after this date.</small>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn btn-secondary" onclick="AnnouncementApp.closePostAnnouncementModal()">Cancel</button>
+            <button type="submit" id="postAnnouncementSubmitBtn" class="btn btn-primary"><span>Publish Official Announcement</span></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 13. ADVISOR SEND CLASS ANNOUNCEMENT MODAL ==================== -->
+  <div id="advisorClassAnnouncementModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 620px; width: 95%;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">📢 Send Class Announcement</div>
+          <div style="font-size:12px; color:#64748b; margin-top:2px;">Broadcast an official message directly to all students in your assigned section.</div>
+        </div>
+        <button class="modal-close" onclick="AdvisorPortal.closeClassAnnouncementModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="advisorClassAnnouncementForm" onsubmit="AdvisorPortal.submitClassAnnouncement(event)">
+          <!-- Target Class (Locked) -->
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-weight:700; font-size:13px;">Target Class & Section (Locked)</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="text" id="advAnnTargetSection" class="form-control" readonly style="background:#f1f5f9; font-weight:700; color:#0f2942; cursor:not-allowed;" value="Section CSE-A (Enrolled Students)">
+              <span class="badge-tag badge-teal" style="white-space:nowrap;">🔒 Authorized Class Only</span>
+            </div>
+            <small style="color:#64748b; font-size:11px; margin-top:3px; display:block;">Backend strictly enforces section authorization. Message will be dispatched only to your students.</small>
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label for="advAnnTitle" style="font-weight:700; font-size:13px;">Announcement Title <span style="color:#ef4444;">*</span></label>
+            <input id="advAnnTitle" type="text" class="form-control" required placeholder="e.g. Mandatory Attendance Review & Fee Clearance Schedule" oninput="AdvisorPortal.updateAnnouncementPreview()">
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+            <div class="form-group">
+              <label for="advAnnPriority" style="font-weight:700; font-size:13px;">Priority Level</label>
+              <select id="advAnnPriority" class="form-control" onchange="AdvisorPortal.updateAnnouncementPreview()">
+                <option value="NORMAL">ℹ️ Normal Notice</option>
+                <option value="IMPORTANT">⚠️ Important Notice</option>
+                <option value="URGENT">🚨 Urgent (Immediate Attention)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="advAnnExpiry" style="font-weight:700; font-size:13px;">Optional Expiry Date</label>
+              <input id="advAnnExpiry" type="date" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label for="advAnnMessage" style="font-weight:700; font-size:13px;">Message Content <span style="color:#ef4444;">*</span></label>
+            <textarea id="advAnnMessage" class="form-control" rows="4" required placeholder="Type the instructions or notice for your entire class..." oninput="AdvisorPortal.updateAnnouncementPreview()"></textarea>
+          </div>
+
+          <!-- Live Student Preview Box -->
+          <div style="border:1.5px dashed #cbd5e1; border-radius:8px; padding:12px; background:#f8fafc; margin-bottom:16px;">
+            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+              👁️ Live Student Preview (How Students Will See This)
+            </div>
+            <div id="advAnnPreviewBox" style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0d9488; border-radius:6px; padding:10px 14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <strong id="advPreviewTitle" style="color:#0f2942; font-size:13px;">Announcement Title</strong>
+                <span id="advPreviewBadge" class="badge-tag badge-teal" style="font-size:10px;">NORMAL</span>
+              </div>
+              <p id="advPreviewMessage" style="font-size:12px; color:#334155; margin:0 0 6px 0; white-space:pre-wrap;">Message content will appear here...</p>
+              <div style="font-size:10.5px; color:#94a3b8;">
+                Posted by <span id="advPreviewSender">Class Advisor</span> • Just now
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn btn-secondary" onclick="AdvisorPortal.closeClassAnnouncementModal()">Cancel</button>
+            <button type="submit" id="advAnnSubmitBtn" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px;">
+              <span>🚀 Broadcast to Entire Section</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Application Scripts in Correct Order -->
+  <script src="/js/demo-data.js"></script>
+  <script src="/js/auth.js?v=2.3"></script>
+  <script src="/js/assistant.js"></script>
+  <script src="/js/student.js?v=2.2"></script>
+  <script src="/js/advisor.js"></script>
+  <script src="/js/hod.js"></script>
+  <script src="/js/principal.js"></script>
+  <script src="/js/chat.js?v=2.3"></script>
+  <script src="/js/announcements.js?v=2.3"></script>
+  <script src="/js/app.js?v=2.3"></script>
+</body>
+</html>
