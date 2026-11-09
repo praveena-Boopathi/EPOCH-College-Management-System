@@ -27,7 +27,7 @@ public class OdService {
     private static final long FIRESTORE_FETCH_TTL_MS = 60000; // 60s cache TTL to prevent Firestore quota exhaustion
 
     public boolean shouldFetchFromFirestore() {
-        return (System.currentTimeMillis() - lastRemoteFetchTime > FIRESTORE_FETCH_TTL_MS) || memoryRequests.isEmpty();
+        return db != null && ((System.currentTimeMillis() - lastRemoteFetchTime > FIRESTORE_FETCH_TTL_MS) || memoryRequests.isEmpty());
     }
 
     public OdService(Firestore db, UserService userService, NotificationService notificationService,
@@ -513,7 +513,7 @@ public class OdService {
             throw new IllegalArgumentException("Student record not found for: " + studentRegNo);
         }
 
-        String id = (payload.getId() != null && payload.getId().startsWith("EPOCH-OD-"))
+        String id = (payload.getId() != null && (payload.getId().startsWith("EPOCH-OD-") || payload.getId().startsWith("EPOCH-UT-")))
                 ? payload.getId()
                 : "EPOCH-OD-DRAFT-" + System.currentTimeMillis() + "-" + (int) (1000 + Math.random() * 9000);
 
@@ -555,8 +555,27 @@ public class OdService {
             throw new IllegalArgumentException("Student record not found for: " + studentRegNo);
         }
 
-        // Auto-fill sensible defaults for Bonafide and Leave requests if omitted
-        if (payload.isBonafide()) {
+        // Auto-fill sensible defaults for Undertaking, Bonafide, and Leave requests if omitted
+        if (payload.isUndertaking()) {
+            if (payload.getOrganizer() == null || payload.getOrganizer().trim().isEmpty()) {
+                payload.setOrganizer("Gnanamani College of Technology");
+            }
+            if (payload.getVenue() == null || payload.getVenue().trim().isEmpty()) {
+                payload.setVenue("Campus / Department of " + (student.getDepartment() != null ? student.getDepartment() : "CSE"));
+            }
+            if (payload.getStartDate() == null || payload.getStartDate().trim().isEmpty()) {
+                payload.setStartDate(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            }
+            if (payload.getEndDate() == null || payload.getEndDate().trim().isEmpty()) {
+                payload.setEndDate(payload.getStartDate());
+            }
+            if (payload.getEventTitle() == null || payload.getEventTitle().trim().isEmpty()) {
+                payload.setEventTitle("75% Below Attendance Undertaking");
+            }
+            if (payload.getOdType() == null || payload.getOdType().trim().isEmpty()) {
+                payload.setOdType("75% Attendance Undertaking");
+            }
+        } else if (payload.isBonafide()) {
             if (payload.getOrganizer() == null || payload.getOrganizer().trim().isEmpty()) {
                 payload.setOrganizer("Gnanamani College of Technology");
             }
@@ -659,7 +678,7 @@ public class OdService {
                 String exStart = exist.getStartDate();
                 String exEnd = exist.getEndDate() != null ? exist.getEndDate() : exStart;
 
-                if (exStart != null && exEnd != null && !payload.isBonafide() && !exist.isBonafide()) {
+                if (exStart != null && exEnd != null && !payload.isBonafide() && !exist.isBonafide() && !payload.isUndertaking() && !exist.isUndertaking()) {
                     // Check date overlap: (StartA <= EndB) and (EndA >= StartB)
                     if (payloadStart.compareTo(exEnd) <= 0 && payloadEnd.compareTo(exStart) >= 0) {
                         throw new IllegalArgumentException(
@@ -674,7 +693,8 @@ public class OdService {
         String id;
         if (currentDraftId != null
                 && (currentDraftId.startsWith("EPOCH-OD-DRAFT-") || currentDraftId.startsWith("EPOCH-OD-")
-                        || currentDraftId.startsWith("EPOCH-BNF-") || currentDraftId.startsWith("EPOCH-LV-"))) {
+                        || currentDraftId.startsWith("EPOCH-BNF-") || currentDraftId.startsWith("EPOCH-LV-")
+                        || currentDraftId.startsWith("EPOCH-UT-"))) {
             id = currentDraftId.replace("-DRAFT-", "-");
             if (currentDraftId.contains("-DRAFT-")) {
                 try {
@@ -682,6 +702,8 @@ public class OdService {
                 } catch (Exception ignored) {
                 }
             }
+        } else if (payload.isUndertaking()) {
+            id = "EPOCH-UT-2026-" + (int) (100 + Math.random() * 900);
         } else if (payload.isBonafide()) {
             id = "EPOCH-BNF-2026-" + (int) (100 + Math.random() * 900);
         } else if (payload.isLeave()) {
@@ -720,6 +742,8 @@ public class OdService {
         req.setDocumentType(payload.getDocumentType());
         req.setDocumentData(payload.getDocumentData());
         req.setDocumentSize(payload.getDocumentSize());
+        req.setAttendancePercentage(payload.getAttendancePercentage());
+        req.setUndertakingDeclaration(payload.getUndertakingDeclaration());
         req.setStatus(OdStatus.PENDING_ADVISOR);
         req.setCurrentStage("ADVISOR");
         req.setSubmittedAt(timestamp);
@@ -739,9 +763,9 @@ public class OdService {
                 "ASSIGNED", "Assigned to Class Advisor (" + advisorDisplayName + ")", null);
 
         // WORKFLOW RULE:
-        // 1. Bonafide Certificate -> 3 Approval Stages (Advisor -> HOD -> Principal)
+        // 1. Bonafide Certificate & 75% Attendance Undertaking -> 3 Approval Stages (Advisor -> HOD -> Principal)
         // 2. All Other Requests (OD, Leave) -> 2 Approval Stages (Advisor -> HOD)
-        boolean reqPrincipal = req.isBonafide();
+        boolean reqPrincipal = req.isBonafide() || req.isUndertaking();
         req.setRequiresPrincipalApproval(reqPrincipal);
 
         // Save to in-memory cache
@@ -755,7 +779,8 @@ public class OdService {
         }
 
         String typeDesc = req.isBonafide() ? "Bonafide Certificate"
-                : (req.isLeave() ? "Leave Application" : req.getOdType());
+                : (req.isUndertaking() ? "75% Attendance Undertaking"
+                : (req.isLeave() ? "Leave Application" : req.getOdType()));
 
         // Notify Student
         notificationService.createNotification(
@@ -958,8 +983,8 @@ public class OdService {
     public List<OdRequest> getPrincipalRequests() {
         Map<String, OdRequest> map = new LinkedHashMap<>();
         for (OdRequest req : memoryRequests.values()) {
-            boolean isBonafide = req.isRequiresPrincipalApproval() || req.isBonafide();
-            if (isBonafide) {
+            boolean isPrincipalReq = req.isRequiresPrincipalApproval() || req.isBonafide() || req.isUndertaking();
+            if (isPrincipalReq) {
                 boolean isPendingPrin = req.getStatus() == OdStatus.PENDING_PRINCIPAL
                         || "PRINCIPAL".equalsIgnoreCase(req.getCurrentStage())
                         || "bsanjaygandhi".equalsIgnoreCase(req.getAssignedReviewerId());
@@ -980,8 +1005,8 @@ public class OdService {
                         if (req.getId() == null)
                             req.setId(doc.getId());
                         ensureWorkflowTimeline(req);
-                        boolean isBonafide = req.isRequiresPrincipalApproval() || req.isBonafide();
-                        if (isBonafide) {
+                        boolean isPrincipalReq = req.isRequiresPrincipalApproval() || req.isBonafide() || req.isUndertaking();
+                        if (isPrincipalReq) {
                             boolean isPendingPrin = req.getStatus() == OdStatus.PENDING_PRINCIPAL
                                     || "PRINCIPAL".equalsIgnoreCase(req.getCurrentStage())
                                     || "bsanjaygandhi".equalsIgnoreCase(req.getAssignedReviewerId());
@@ -1186,7 +1211,8 @@ public class OdService {
         req.setAdvisorDecision(decision);
 
         String typeDesc = req.isBonafide() ? "Bonafide Certificate"
-                : (req.isLeave() ? "Leave Application" : req.getOdType());
+                : (req.isUndertaking() ? "75% Attendance Undertaking"
+                : (req.isLeave() ? "Leave Application" : req.getOdType()));
 
         ensureWorkflowTimeline(req);
 
@@ -1339,7 +1365,8 @@ public class OdService {
         req.setHodDecision(decision);
 
         String typeDesc = req.isBonafide() ? "Bonafide Certificate"
-                : (req.isLeave() ? "Leave Application" : req.getOdType());
+                : (req.isUndertaking() ? "75% Attendance Undertaking"
+                : (req.isLeave() ? "Leave Application" : req.getOdType()));
 
         ensureWorkflowTimeline(req);
 
@@ -1377,7 +1404,7 @@ public class OdService {
                     "Head of Department (CSE)");
         } else {
             if (req.isRequiresPrincipalApproval()) {
-                // Bonafide Certificate workflow -> moves to Principal stage
+                // Bonafide Certificate & Undertaking workflow -> moves to Principal stage
                 req.setStatus(OdStatus.PENDING_PRINCIPAL);
                 req.setCurrentStage("PRINCIPAL");
                 req.setAssignedReviewerId("bsanjaygandhi");
@@ -1399,8 +1426,8 @@ public class OdService {
 
                 notificationService.createNotification(
                         req.getRegNo(),
-                        "Bonafide Certificate Forwarded to Principal",
-                        "Your Bonafide Certificate request (" + req.getId()
+                        typeDesc + " Forwarded to Principal",
+                        "Your " + typeDesc + " request (" + req.getId()
                                 + ") was approved by HOD " + hodDisplayName + " and forwarded to Principal for final sanction.",
                         "REQUEST_APPROVED_STEP",
                         req.getId(),
@@ -1412,8 +1439,8 @@ public class OdService {
 
                 notificationService.createNotification(
                         "bsanjaygandhi",
-                        "Bonafide Certificate Awaiting Principal Approval",
-                        "Bonafide Certificate request " + req.getId() + " for student " + req.getStudentName() + " ("
+                        typeDesc + " Awaiting Principal Approval",
+                        typeDesc + " request " + req.getId() + " for student " + req.getStudentName() + " ("
                                 + req.getSection() + ") has been approved by HOD " + hodDisplayName + " and awaits Principal final approval.",
                         "REQUEST_PENDING_PRINCIPAL",
                         req.getId(),
@@ -1535,7 +1562,8 @@ public class OdService {
         }
         req.setPrincipalDecision(decision);
 
-        String typeDesc = req.isBonafide() ? "Bonafide Certificate" : req.getOdType();
+        String typeDesc = req.isBonafide() ? "Bonafide Certificate"
+                : (req.isUndertaking() ? "75% Attendance Undertaking" : req.getOdType());
 
         ensureWorkflowTimeline(req);
 
@@ -1580,9 +1608,9 @@ public class OdService {
 
             addTimelineEvent(req, "PRINCIPAL_APPROVAL", "Approved by Principal", canonicalPrinId, prinDisplayName,
                     "PRINCIPAL", "APPROVED", reason, sigSnapshot);
-            addTimelineEvent(req, "FINAL_COMPLETION", "Official Certificate Sanctioned", canonicalPrinId,
+            addTimelineEvent(req, "FINAL_COMPLETION", "Official Sanction Granted", canonicalPrinId,
                     prinDisplayName, "PRINCIPAL", "COMPLETED",
-                    "Final institutional approval granted. Official certificate generated.", null);
+                    "Final institutional approval granted. Official " + typeDesc + " document generated.", null);
 
             memoryRequests.put(id, req);
             try {
@@ -1593,10 +1621,10 @@ public class OdService {
 
             notificationService.createNotification(
                     req.getRegNo(),
-                    "Bonafide Certificate Officially Approved by Principal",
-                    "Your Bonafide Certificate request (" + req.getId()
+                    typeDesc + " Officially Approved by Principal",
+                    "Your " + typeDesc + " request (" + req.getId()
                             + ") has received final approval from Principal " + prinDisplayName
-                            + ". Official certificate is now available for download.",
+                            + ". Official document is now available for download.",
                     "REQUEST_APPROVED_FINAL",
                     req.getId(),
                     null,

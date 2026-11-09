@@ -226,6 +226,8 @@ const HodPortal = {
 
     tbody.innerHTML = filtered.map(r => {
       const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+      const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+      const is3Stage = isBonafide || isUndertaking;
       const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
       const pendingReview = this.isPending(r);
       const approvedReq = this.isApproved(r);
@@ -240,7 +242,7 @@ const HodPortal = {
       } else if (r.status === "PENDING_PRINCIPAL") {
         stageBadge = '<span class="badge-tag badge-info">🏛️ Forwarded to Principal</span>';
       } else if (approvedReq) {
-        stageBadge = isBonafide ? '<span class="badge-tag badge-approved">✅ Principal Sanctioned</span>' : '<span class="badge-tag badge-approved">✅ HOD Approved</span>';
+        stageBadge = is3Stage ? '<span class="badge-tag badge-approved">✅ Principal Sanctioned</span>' : '<span class="badge-tag badge-approved">✅ HOD Approved</span>';
       }
 
       // Class Advisor Decision Summary
@@ -292,8 +294,8 @@ const HodPortal = {
         `;
       }
 
-      const reqTypeLabel = isBonafide ? "Bonafide Certificate" : (isLeave ? (r.odType || "Leave Application") : (r.odType || "On-Duty Requisition"));
-      const reqTypeBadgeClass = isBonafide ? "badge-teal" : (isLeave ? "badge-info" : "badge-primary");
+      const reqTypeLabel = isUndertaking ? "75% Attendance Undertaking" : (isBonafide ? "Bonafide Certificate" : (isLeave ? (r.odType || "Leave Application") : (r.odType || "On-Duty Requisition")));
+      const reqTypeBadgeClass = isUndertaking ? "badge-warning" : (isBonafide ? "badge-teal" : (isLeave ? "badge-info" : "badge-primary"));
       const submittedDateStr = r.submittedAt || (r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "Recent");
 
       return `
@@ -651,6 +653,8 @@ const HodPortal = {
     this.activeRequestId = id;
 
     const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+    const is3Stage = isBonafide || isUndertaking;
     const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
     const pendingReview = this.isPending(r);
 
@@ -658,9 +662,9 @@ const HodPortal = {
     document.getElementById("hodRevStudentName").textContent = r.studentName || "Student";
     document.getElementById("hodRevRegNo").textContent = `${r.regNo || "-"} (${r.section || "CSE-A"})`;
     document.getElementById("hodRevDept").textContent = `${r.dept || "Computer Science & Engineering"}`;
-    document.getElementById("hodRevOdType").textContent = r.odType || (isBonafide ? "Bonafide Certificate" : (isLeave ? "Leave Application" : "On-Duty"));
-    document.getElementById("hodRevEventTitle").textContent = r.eventTitle || r.odType || (isBonafide ? "Bonafide Certificate" : "Academic Event");
-    document.getElementById("hodRevOrganizer").textContent = r.organizer || (isBonafide ? "Gnanamani College of Technology" : "Academic Body");
+    document.getElementById("hodRevOdType").textContent = r.odType || (isUndertaking ? "75% Attendance Undertaking" : (isBonafide ? "Bonafide Certificate" : (isLeave ? "Leave Application" : "On-Duty")));
+    document.getElementById("hodRevEventTitle").textContent = r.eventTitle || r.odType || (isUndertaking ? "75% Attendance Undertaking" : (isBonafide ? "Bonafide Certificate" : "Academic Event"));
+    document.getElementById("hodRevOrganizer").textContent = r.organizer || ((isBonafide || isUndertaking) ? "Gnanamani College of Technology" : "Academic Body");
     document.getElementById("hodRevVenue").textContent = r.venue || r.eventDetails || "Campus";
     document.getElementById("hodRevDates").textContent = `${r.startDate || r.fromDate || "-"} to ${r.endDate || r.toDate || r.startDate || r.fromDate || "-"} (${r.numberOfDays || 1} day(s))`;
     document.getElementById("hodRevReason").textContent = r.reason || "N/A";
@@ -735,7 +739,7 @@ const HodPortal = {
       if (pendingReview) {
         approveBtn.style.display = "inline-flex";
         rejectBtn.style.display = "inline-flex";
-        if (isBonafide) {
+        if (is3Stage) {
           approveBtn.textContent = "Endorse & Forward to Principal ➔";
           approveBtn.className = "btn btn-primary";
         } else {
@@ -757,16 +761,18 @@ const HodPortal = {
     if (!container) return;
 
     const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+    const is3Stage = isBonafide || isUndertaking;
     const adv = r.advisorDecision || {};
     const hod = r.hodDecision || {};
     const prin = r.principalDecision || {};
 
     const advApproved = adv.status === "APPROVED" || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || r.status === "APPROVED";
     const hodApproved = this.isApproved(r);
-    const prinApproved = r.status === "APPROVED" && isBonafide;
+    const prinApproved = r.status === "APPROVED" && is3Stage;
 
     let stepperHtml = '';
-    if (isBonafide) {
+    if (is3Stage) {
       stepperHtml = `
         <div class="workflow-stepper" style="margin-bottom:14px; background:#ffffff; padding:12px; border-radius:8px; border:1px solid var(--border);">
           <div class="workflow-step-node completed">
@@ -834,9 +840,12 @@ const HodPortal = {
     this.activeRequestId = id;
     const r = this.requests.find(x => x.id === id);
     const isBonafide = r && ((r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF")));
-    const promptMsg = isBonafide
-      ? `Endorse Bonafide Certificate request (${id}) and forward to Principal Dr. B. Sanjay Gandhi for final approval?`
-      : `Grant official HOD final approval for request (${id})?`;
+    const isUndertaking = r && ((r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT")));
+    const promptMsg = isUndertaking
+      ? `Endorse 75% Attendance Undertaking (${id}) and forward to Principal Dr. B. Sanjay Gandhi for final approval?`
+      : (isBonafide
+        ? `Endorse Bonafide Certificate request (${id}) and forward to Principal Dr. B. Sanjay Gandhi for final approval?`
+        : `Grant official HOD final approval for request (${id})?`);
 
     if (confirm(promptMsg)) {
       this.approveOd();
@@ -855,6 +864,7 @@ const HodPortal = {
     if (!this.activeRequestId) return;
     const r = this.requests.find(x => x.id === this.activeRequestId);
     const isBonafide = r && ((r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF")));
+    const isUndertaking = r && ((r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT")));
 
     const comment = (document.getElementById("hodReviewCommentInput")?.value || "").trim();
 
@@ -876,6 +886,8 @@ const HodPortal = {
 
       if (isBonafide) {
         Toast.show("Bonafide Certificate endorsed and forwarded to Principal for final approval!", "success");
+      } else if (isUndertaking) {
+        Toast.show("75% Attendance Undertaking endorsed and forwarded to Principal for final approval!", "success");
       } else {
         Toast.show("Request officially approved and finalized by HOD! Form & Certificate enabled.", "success");
       }

@@ -137,12 +137,17 @@ const Auth = {
     const roleMap = {
       student: "STUDENT",
       advisor: "ADVISOR",
+      staff: "STAFF",
       hod: "HOD",
       principal: "PRINCIPAL",
       admin: "ADMIN"
     };
     const expectedRole = roleMap[(role || "").toLowerCase()] || (role || "").toUpperCase();
-    if (data.role !== expectedRole) {
+    const roleMatches = (data.role === expectedRole) ||
+      (expectedRole === "STAFF" && (data.role === "ADVISOR" || data.role === "STAFF")) ||
+      (expectedRole === "ADVISOR" && (data.role === "ADVISOR" || data.role === "STAFF"));
+
+    if (!roleMatches) {
       throw new Error(`Access denied: This account has role ${data.role}, which is not authorized for the ${role} portal.`);
     }
 
@@ -156,7 +161,9 @@ const Auth = {
       section: data.section,
       email: data.email,
       department: data.department,
-      academicYear: data.academicYear || (data.role === "STUDENT" ? "IV Year B.E." : ""),
+      academicYear: data.role === "STUDENT" ? (data.academicYear || "IV Year B.E.") : "",
+      title: data.title || "",
+      contact: data.contact || "",
       bio: data.bio || "",
       profilePhoto: data.profilePhoto || data.photoUrl || ""
     });

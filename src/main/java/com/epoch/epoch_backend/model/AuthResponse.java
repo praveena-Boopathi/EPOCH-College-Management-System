@@ -8,7 +8,10 @@ public class AuthResponse {
     private String email;
     private String identifier;
     private String department;
-    private String academicYear = "IV Year B.E.";
+    private String academicYear;
+    private String title;
+    private String bio;
+    private String contact;
     private String redirectUrl;
     private String profilePhoto;
 
@@ -22,7 +25,7 @@ public class AuthResponse {
         this.email = email;
         this.identifier = identifier;
         this.department = department;
-        this.academicYear = "IV Year B.E.";
+        this.academicYear = null;
         this.redirectUrl = redirectUrl;
     }
 
@@ -49,6 +52,15 @@ public class AuthResponse {
 
     public String getAcademicYear() { return academicYear; }
     public void setAcademicYear(String academicYear) { this.academicYear = academicYear; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getContact() { return contact; }
+    public void setContact(String contact) { this.contact = contact; }
 
     public String getRedirectUrl() { return redirectUrl; }
     public void setRedirectUrl(String redirectUrl) { this.redirectUrl = redirectUrl; }

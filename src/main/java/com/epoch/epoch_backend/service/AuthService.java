@@ -52,7 +52,7 @@ public class AuthService {
         boolean passwordValid = false;
         if (profile.getRole() == UserRole.STUDENT && ("student@12".equals(password) || "student@123".equals(password))) {
             passwordValid = true;
-        } else if (profile.getRole() == UserRole.ADVISOR && ("advisor@123".equals(password) || "staff@123".equals(password))) {
+        } else if ((profile.getRole() == UserRole.ADVISOR || profile.getRole() == UserRole.STAFF) && ("advisor@123".equals(password) || "staff@123".equals(password))) {
             passwordValid = true;
         } else if (profile.getRole() == UserRole.HOD && "hod@123".equals(password)) {
             passwordValid = true;
@@ -86,7 +86,7 @@ public class AuthService {
         // Compute redirect URL based on verified role
         String redirectUrl = switch (profile.getRole()) {
             case STUDENT -> "/#student-portal";
-            case ADVISOR -> "/#advisor-portal";
+            case ADVISOR, STAFF -> "/#advisor-portal";
             case HOD -> "/#hod-portal";
             case PRINCIPAL -> "/#principal-portal";
             case ADMIN -> "/#admin-portal";
@@ -102,6 +102,14 @@ public class AuthService {
                 profile.getDepartment(),
                 redirectUrl
         );
+        if (profile.getRole() == UserRole.STUDENT) {
+            resp.setAcademicYear(profile.getAcademicYear() != null ? profile.getAcademicYear() : UserService.CURRENT_ACADEMIC_YEAR);
+        } else {
+            resp.setAcademicYear(null);
+        }
+        resp.setTitle(profile.getTitle());
+        resp.setBio(profile.getBio());
+        resp.setContact(profile.getContact());
         resp.setProfilePhoto(profile.getProfilePhoto());
         return resp;
     }

@@ -9,11 +9,14 @@ public class UserProfile {
     private String section;
     private String contact;
     private String department;
-    private String academicYear = "IV Year B.E.";
-    private String year = "IV Year";
-    private String studentType = "Day Scholar";
+    private String academicYear;
+    private String year;
+    private String studentType;
     private String bio;
     private String profilePhoto;
+    private String address;
+    private String emergencyContact;
+    private String title;
 
     public UserProfile() {}
 
@@ -26,9 +29,11 @@ public class UserProfile {
         this.section = section;
         this.contact = contact;
         this.department = department;
-        this.academicYear = "IV Year B.E.";
-        this.year = "IV Year";
-        this.studentType = "Day Scholar";
+        if (role == UserRole.STUDENT) {
+            this.academicYear = "IV Year B.E.";
+            this.year = "IV Year";
+            this.studentType = "Day Scholar";
+        }
     }
 
     public String getId() { return id; }
@@ -84,4 +89,13 @@ public class UserProfile {
     public void setPhotoUrl(String photoUrl) { this.profilePhoto = photoUrl; }
     public String getAvatarUrl() { return profilePhoto; }
     public void setAvatarUrl(String avatarUrl) { this.profilePhoto = avatarUrl; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getEmergencyContact() { return emergencyContact; }
+    public void setEmergencyContact(String emergencyContact) { this.emergencyContact = emergencyContact; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 }

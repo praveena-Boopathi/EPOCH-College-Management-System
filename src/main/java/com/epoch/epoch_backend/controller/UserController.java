@@ -61,18 +61,17 @@ public class UserController {
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body) {
         try {
             UserProfile user = getCurrentUser();
-            if (user.getRole() != UserRole.STUDENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only student accounts may edit their profile details."));
-            }
-
             String name = body.get("name");
             String contact = body.get("contact");
             if (contact == null || contact.trim().isEmpty()) {
                 contact = body.get("contactPhone");
             }
             String bio = body.get("bio");
+            String email = body.get("email");
+            String address = body.get("address");
+            String emergencyContact = body.get("emergencyContact");
 
-            UserProfile updated = userService.updateStudentProfile(user.getIdentifier(), name, contact, bio);
+            UserProfile updated = userService.updateProfile(user, name, contact, bio, email, address, emergencyContact);
             chatService.invalidateUserCache(user.getIdentifier());
             return ResponseEntity.ok(updated);
         } catch (SecurityException ex) {

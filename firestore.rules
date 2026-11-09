@@ -21,6 +21,10 @@ service cloud.firestore {
       return isSignedIn() && getUserRole() == 'ADVISOR';
     }
 
+    function isStaff() {
+      return isSignedIn() && (getUserRole() == 'STAFF' || getUserRole() == 'ADVISOR' || getUserRole() == 'HOD' || getUserRole() == 'PRINCIPAL');
+    }
+
     function isHod() {
       return isSignedIn() && getUserRole() == 'HOD';
     }
@@ -44,7 +48,7 @@ service cloud.firestore {
       // Students can only read their own profile; staff and admin can view directories
       allow read: if isSignedIn() && (isOwner(studentId) || isAdvisor() || isHod() || isPrincipal() || isAdmin());
       // Students can only update allowed contact info; fee records/academic year cannot be altered
-      allow update: if isOwner(studentId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['regNo', 'academicYear', 'section', 'fees']);
+      allow update: if isOwner(studentId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['regNo', 'academicYear', 'section', 'fees', 'role']);
       allow create, delete: if isAdmin();
     }
 
@@ -53,7 +57,9 @@ service cloud.firestore {
     // =========================================================================
     match /staff/{staffId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      // Allow authenticated staff members to update their own permitted personal info while protecting institutional attributes
+      allow update: if (isOwner(staffId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'staffId', 'identifier', 'dept', 'permissions'])) || isAdmin();
+      allow create, delete: if isAdmin();
     }
 
     // =========================================================================

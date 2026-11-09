@@ -104,7 +104,7 @@ const StudentPortal = {
     if (!r) return false;
     const t = (r.odType || "").toLowerCase();
     const id = r.id || "";
-    return t.includes("bonafide") || t.includes("leave") || id.startsWith("EPOCH-BNF") || id.startsWith("EPOCH-LV");
+    return t.includes("bonafide") || t.includes("leave") || t.includes("undertaking") || t.includes("75%") || id.startsWith("EPOCH-BNF") || id.startsWith("EPOCH-LV") || id.startsWith("EPOCH-UT");
   },
 
   updateSummaryMetrics() {
@@ -694,13 +694,15 @@ const StudentPortal = {
 
     tbody.innerHTML = filtered.map(r => {
       const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+      const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+      const is3Stage = isBonafide || isUndertaking;
       const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
       const isApproved = r.status === "APPROVED";
       const isRejected = r.status === "REJECTED";
 
-      const typeLabel = isBonafide ? "Bonafide Certificate" : (isLeave ? (r.leaveType || r.odType || "Leave Application") : (r.odType || "On-Duty Application"));
-      const typeBadgeClass = isBonafide ? "badge-teal" : (isLeave ? "badge-info" : "badge-primary");
-      const purposeSubtitle = r.eventTitle || r.purpose || r.reason || (isBonafide ? "Institutional Verification" : "Academic Request");
+      const typeLabel = isUndertaking ? "75% Attendance Undertaking" : (isBonafide ? "Bonafide Certificate" : (isLeave ? (r.leaveType || r.odType || "Leave Application") : (r.odType || "On-Duty Application")));
+      const typeBadgeClass = isUndertaking ? "badge-warning" : (isBonafide ? "badge-teal" : (isLeave ? "badge-info" : "badge-primary"));
+      const purposeSubtitle = r.eventTitle || r.purpose || r.reason || (isUndertaking ? "Attendance Shortage Undertaking" : (isBonafide ? "Institutional Verification" : "Academic Request"));
 
       const submittedDate = r.submittedAt || (r.createdAt ? new Date(r.createdAt).toLocaleString() : "Recent");
       const updatedDate = r.lastUpdatedAt || submittedDate;
@@ -724,7 +726,7 @@ const StudentPortal = {
       } else if (isApproved) {
         currentStageHtml = `
           <div style="font-weight:700; color:#047857; font-size:12px;">✅ Fully Sanctioned</div>
-          <div style="font-size:11px; color:#64748b;">${isBonafide ? 'Principal Approved' : 'HOD Approved'}</div>
+          <div style="font-size:11px; color:#64748b;">${is3Stage ? 'Principal Approved' : 'HOD Approved'}</div>
         `;
       } else if (isRejected) {
         currentStageHtml = `
@@ -740,7 +742,7 @@ const StudentPortal = {
       const hod = r.hodDecision || {};
       const prin = r.principalDecision || {};
 
-      if (isBonafide) {
+      if (is3Stage) {
         const advDone = adv.status === "APPROVED" || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || isApproved;
         const hodDone = hod.status === "APPROVED" || r.status === "PENDING_PRINCIPAL" || isApproved;
         const prinDone = isApproved;
@@ -778,8 +780,8 @@ const StudentPortal = {
           </button>
       `;
       if (isApproved) {
-        const downloadLabel = isBonafide ? "📜 Download Approved Request" : "📥 Download Approved Request";
-        const downloadClass = isBonafide ? "btn-primary" : "btn-success";
+        const downloadLabel = isUndertaking ? "📋 Download Approved Undertaking" : (isBonafide ? "📜 Download Approved Request" : "📥 Download Approved Request");
+        const downloadClass = isUndertaking ? "btn-warning" : (isBonafide ? "btn-primary" : "btn-success");
         actionButtons += `
           <button class="btn btn-sm ${downloadClass}" onclick="App.downloadPdf('${r.id}')" title="Download Approved Request" style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px; font-size:11px; font-weight:600;">
             ${downloadLabel}
@@ -2064,6 +2066,148 @@ const StudentPortal = {
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "Request Certificate";
+      }
+    }
+  },
+
+  // ------------------ 75% Attendance Undertaking ------------------
+  openUndertakingModal() {
+    const modal = document.getElementById("undertakingModal");
+    if (!modal) return;
+    const u = this.currentUser || {};
+    const nameEl = document.getElementById("utStudentName");
+    const regEl = document.getElementById("utStudentRegNo");
+    const deptEl = document.getElementById("utStudentDept");
+    const yrSecEl = document.getElementById("utStudentYearSec");
+    const typeBadgeEl = document.getElementById("utStudentTypeBadge");
+    const dateInput = document.getElementById("utSubmissionDateInput");
+
+    if (nameEl) nameEl.textContent = u.name || "Student";
+    if (regEl) regEl.textContent = u.identifier || u.regNo || "-";
+    if (deptEl) deptEl.textContent = u.department || "CSE";
+    if (yrSecEl) yrSecEl.textContent = `${u.year || "IV Year"} / ${u.section || "CSE-A"}`;
+    if (typeBadgeEl) typeBadgeEl.textContent = u.studentType || "Day Scholar";
+    if (dateInput && !dateInput.value) {
+      dateInput.value = new Date().toISOString().split("T")[0];
+    }
+    modal.style.display = "flex";
+  },
+
+  closeUndertakingModal() {
+    const modal = document.getElementById("undertakingModal");
+    if (modal) modal.style.display = "none";
+  },
+
+  previewUndertakingApplication() {
+    const attInput = document.getElementById("utAttendancePercentageInput");
+    const attVal = parseFloat(attInput ? attInput.value : 0);
+    const reasonCat = document.getElementById("utReasonCategorySelect")?.value || "Medical Illness / Hospitalization";
+    const details = document.getElementById("utReasonDetailsInput")?.value.trim() || "";
+    const parentPhone = document.getElementById("utParentPhoneInput")?.value.trim() || "";
+    const subDate = document.getElementById("utSubmissionDateInput")?.value || new Date().toISOString().split("T")[0];
+
+    if (!attVal || attVal >= 75 || attVal < 0) {
+      Toast.show("Please enter a valid attendance percentage strictly below 75%.", "warning");
+      return;
+    }
+
+    this.closeUndertakingModal();
+    this.openOdModal();
+
+    document.getElementById("odSelectedCategory").value = "75% Attendance Undertaking";
+    document.getElementById("odEventTitleInput").value = `75% Attendance Shortage Undertaking (${attVal}%)`;
+    document.getElementById("odOrganizerInput").value = "Gnanamani College of Technology";
+    document.getElementById("odVenueInput").value = "Autonomous Campus";
+    document.getElementById("odStartDateInput").value = subDate;
+    document.getElementById("odEndDateInput").value = subDate;
+    document.getElementById("odDaysInput").value = 1;
+    document.getElementById("odReasonInput").value = `Attendance: ${attVal}% | Parent Phone: ${parentPhone} | Reason: ${reasonCat} - ${details}`;
+
+    this.previewOdApplication();
+    document.getElementById("odModalHeaderTitle").textContent = "👁️ 75% Attendance Shortage Undertaking Form Preview";
+  },
+
+  async submitUndertaking() {
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+
+    const attInput = document.getElementById("utAttendancePercentageInput");
+    const attVal = parseFloat(attInput ? attInput.value : 0);
+    const parentPhone = document.getElementById("utParentPhoneInput")?.value.trim() || "";
+    const reasonCat = document.getElementById("utReasonCategorySelect")?.value || "Medical Illness / Hospitalization";
+    const details = document.getElementById("utReasonDetailsInput")?.value.trim() || "";
+    const subDate = document.getElementById("utSubmissionDateInput")?.value || new Date().toISOString().split("T")[0];
+    const declCheck = document.getElementById("utDeclarationCheckbox");
+
+    if (isNaN(attVal) || attVal <= 0 || attVal >= 75) {
+      this.isSubmitting = false;
+      Toast.show("Recorded attendance percentage must be strictly below 75.0% to submit an undertaking.", "warning");
+      if (attInput) attInput.focus();
+      return;
+    }
+
+    if (!parentPhone) {
+      this.isSubmitting = false;
+      Toast.show("Parent / Guardian phone number is mandatory.", "warning");
+      return;
+    }
+
+    if (!details) {
+      this.isSubmitting = false;
+      Toast.show("Please explain the circumstances and provide your compensatory academic plan.", "warning");
+      return;
+    }
+
+    if (declCheck && !declCheck.checked) {
+      this.isSubmitting = false;
+      Toast.show("You must acknowledge and sign the formal undertaking declaration before submission.", "warning");
+      return;
+    }
+
+    const payload = {
+      odType: "75% Attendance Undertaking",
+      eventTitle: `75% Attendance Shortage Undertaking (${attVal}%)`,
+      organizer: "Gnanamani College of Technology",
+      venue: "Autonomous Institution - Campus",
+      startDate: subDate,
+      endDate: subDate,
+      numberOfDays: 1,
+      reason: `${reasonCat} - ${details}`,
+      supportingDetails: `Recorded Attendance: ${attVal}% | Parent Contact: ${parentPhone} | Category: ${reasonCat} | Justification: ${details}`,
+      attendancePercentage: attVal,
+      undertakingDeclaration: true
+    };
+
+    const submitBtn = document.getElementById("utSubmitBtn");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting to Class Advisor...";
+    }
+
+    try {
+      const res = await Auth.fetchWithAuth("/api/od/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const parsed = await Auth.parseResponse(res);
+      if (parsed.ok) {
+        const created = parsed.data;
+        this.closeUndertakingModal();
+        await this.loadOdRequests();
+        App.refreshNotifications();
+        Toast.show(`75% Attendance Undertaking submitted! Ref: ${created.id}`, "success");
+      } else {
+        Toast.show("Submission Error: " + (parsed.error || "Failed to submit undertaking"), "danger");
+      }
+    } catch (e) {
+      console.error("[submitUndertaking] Error:", e);
+      Toast.show("Submission Error: " + (e.message || "Failed to submit undertaking"), "danger");
+    } finally {
+      this.isSubmitting = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "🚀 Submit for 3-Stage Approval";
       }
     }
   },

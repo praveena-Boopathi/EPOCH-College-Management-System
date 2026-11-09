@@ -41,12 +41,168 @@ const Toast = {
 const ProfileManager = {
   currentUser: null,
 
+  escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  },
+
+  getRoleCategory(user) {
+    if (!user) return 'UNKNOWN';
+    const r = (user.role || '').toUpperCase();
+    if (r === 'STUDENT') return 'STUDENT';
+    if (r === 'ADVISOR' || r === 'CLASS_ADVISOR' || r === 'CLASS ADVISOR') return 'CLASS_ADVISOR';
+    if (r === 'STAFF' || r === 'FACULTY') return 'STAFF';
+    if (r === 'HOD') return 'HOD';
+    if (r === 'PRINCIPAL') return 'PRINCIPAL';
+    if (r === 'ADMIN') return 'ADMIN';
+    return r;
+  },
+
+  getRoleModalTitle(roleCat) {
+    switch (roleCat) {
+      case 'STUDENT': return '✏️ Edit Student Profile';
+      case 'CLASS_ADVISOR':
+      case 'ADVISOR': return '✏️ Edit Advisor Profile';
+      case 'STAFF': return '✏️ Edit Staff Profile';
+      case 'HOD': return '✏️ Edit HOD Profile';
+      case 'PRINCIPAL': return '✏️ Edit Principal Profile';
+      case 'ADMIN': return '✏️ Edit Administrator Profile';
+      default: return '✏️ Edit Profile';
+    }
+  },
+
+  renderReadOnlyFieldsHtml(roleCat, user) {
+    const esc = (val) => this.escapeHtml(val);
+    if (roleCat === 'STUDENT') {
+      const yearStr = user.academicYear || 'IV Year B.E.';
+      const deptStr = user.department || 'Computer Science & Engineering';
+      const secStr = user.section ? `Section ${user.section}` : 'Section CSE-A';
+      const advStr = user.advisor || 'Mrs. P. Arularasi (CSE-A)';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Registration Number</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🎓 Academic Year</label>
+          <input type="text" class="form-control" disabled value="${esc(yearStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Department</label>
+          <input type="text" class="form-control" disabled value="${esc(deptStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">📚 Section</label>
+          <input type="text" class="form-control" disabled value="${esc(secStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">👨‍🏫 Class Advisor</label>
+          <input type="text" class="form-control" disabled value="${esc(advStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    } else if (roleCat === 'CLASS_ADVISOR') {
+      const titleStr = user.title || 'Assistant Professor & Class Advisor (CSE-A)';
+      const deptStr = user.department || 'Computer Science & Engineering';
+      const secStr = user.section ? `Section ${user.section}` : 'Section CSE-A';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Staff ID</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏢 Designation</label>
+          <input type="text" class="form-control" disabled value="${esc(titleStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Department</label>
+          <input type="text" class="form-control" disabled value="${esc(deptStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🛡️ Assigned Class / Section</label>
+          <input type="text" class="form-control" disabled value="${esc(secStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    } else if (roleCat === 'STAFF') {
+      const titleStr = user.title || 'Assistant Professor';
+      const deptStr = user.department || 'Computer Science & Engineering';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Staff ID</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏢 Designation</label>
+          <input type="text" class="form-control" disabled value="${esc(titleStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Department</label>
+          <input type="text" class="form-control" disabled value="${esc(deptStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    } else if (roleCat === 'HOD') {
+      const titleStr = user.title || 'Professor & Head of Department (CSE)';
+      const deptStr = user.department || 'Computer Science & Engineering';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Staff ID</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏢 Designation</label>
+          <input type="text" class="form-control" disabled value="${esc(titleStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Department (Protected Assignment)</label>
+          <input type="text" class="form-control" disabled value="${esc(deptStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    } else if (roleCat === 'PRINCIPAL') {
+      const titleStr = user.title || 'Principal & Chief Academic Officer';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Staff ID</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏢 Designation</label>
+          <input type="text" class="form-control" disabled value="${esc(titleStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Institution Information</label>
+          <input type="text" class="form-control" disabled value="Gnanamani College of Technology (Autonomous)" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    } else {
+      const titleStr = user.title || 'College Administrator';
+      const deptStr = user.department || 'College Administration & Accounts';
+      return `
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Staff ID</label>
+          <input type="text" class="form-control" disabled value="${esc(user.identifier || user.id || '')}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏢 Designation</label>
+          <input type="text" class="form-control" disabled value="${esc(titleStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569; font-weight:600;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+          <label style="font-size:12px; color:#64748b; font-weight:600;">🏛️ Department</label>
+          <input type="text" class="form-control" disabled value="${esc(deptStr)}" style="background:#f1f5f9; cursor:not-allowed; color:#475569;">
+        </div>
+      `;
+    }
+  },
+
   renderProfile(user) {
     this.currentUser = user || Auth.getUser();
     if (!this.currentUser) return;
 
     const u = this.currentUser;
     const initial = (u.name || "U").charAt(0).toUpperCase();
+    const roleCat = this.getRoleCategory(u);
 
     // Elements
     const avatarEl = document.getElementById("profAvatar");
@@ -56,9 +212,12 @@ const ProfileManager = {
 
     const cardNameEl = document.getElementById("profCardName");
     const cardIdEl = document.getElementById("profCardId");
+    const idCardLabel = document.getElementById("profIdCardLabel");
     const cardDeptEl = document.getElementById("profCardDept");
+    const deptCardLabel = document.getElementById("profDeptCardLabel");
     const cardSecLabelEl = document.getElementById("profSecOrTitleLabel");
     const cardSecValEl = document.getElementById("profCardSecOrTitle");
+    const secBox = document.getElementById("profSecBox");
     const cardEmailEl = document.getElementById("profCardEmail");
     const cardContactEl = document.getElementById("profCardContact");
     const cardBioEl = document.getElementById("profCardBio");
@@ -71,10 +230,14 @@ const ProfileManager = {
     const customLabel2 = document.getElementById("profCustomLabel2");
     const customVal2 = document.getElementById("profCustomVal2");
 
+    const customBox3 = document.getElementById("profCustomBox3");
+    const customLabel3 = document.getElementById("profCustomLabel3");
+    const customVal3 = document.getElementById("profCardStatus");
+
     const photoUrl = u.profilePhoto || u.photoUrl;
     if (avatarEl) {
       if (photoUrl) {
-        avatarEl.innerHTML = `<img src="${photoUrl}" alt="${u.name || 'User'}" class="profile-avatar-img" style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">`;
+        avatarEl.innerHTML = `<img src="${photoUrl}" alt="${this.escapeHtml(u.name || 'User')}" class="profile-avatar-img" style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">`;
       } else {
         avatarEl.textContent = initial;
       }
@@ -87,21 +250,26 @@ const ProfileManager = {
 
     if (nameEl) nameEl.textContent = u.name;
     if (cardNameEl) cardNameEl.textContent = u.name;
-    if (cardIdEl) cardIdEl.textContent = u.identifier || "N/A";
+    if (cardIdEl) cardIdEl.textContent = u.identifier || u.id || "N/A";
+    if (idCardLabel) idCardLabel.textContent = roleCat === 'STUDENT' ? '🆔 Registration Number' : '🆔 Staff ID';
     if (cardDeptEl) cardDeptEl.textContent = u.department || "Computer Science & Engineering";
+    if (deptCardLabel) deptCardLabel.textContent = roleCat === 'PRINCIPAL' ? '🏛️ Institution Information' : '🏛️ Department';
     if (cardEmailEl) cardEmailEl.textContent = u.email || "demo@epoch.edu";
     if (cardContactEl) cardContactEl.textContent = u.contact || "+91 98765 00000";
 
     // Bio
     if (cardBioEl) {
-      cardBioEl.textContent = u.bio || "Authorized member of the Gnanamani College of Technology academic community. Demo account active in isolated sandbox.";
+      cardBioEl.textContent = u.bio || (roleCat === 'STUDENT'
+        ? "Authorized student record enrolled in IV Year B.E. at Gnanamani College of Technology."
+        : "Authorized faculty/administrative record at Gnanamani College of Technology.");
     }
 
     // Role-specific badges and details
-    if (u.role === "STUDENT") {
-      const yearStr = u.academicYear || u.year || "IV Year B.E.";
+    if (roleCat === "STUDENT") {
+      const yearStr = u.academicYear || "IV Year B.E.";
       if (roleBadgeEl) roleBadgeEl.innerHTML = `🎓 Student`;
       if (subtitleEl) subtitleEl.textContent = `Reg No: ${u.identifier} • ${yearStr} • Dept: ${u.department || 'CSE'} (Section ${u.section || 'CSE-A'})`;
+      if (secBox) secBox.style.display = "block";
       if (cardSecLabelEl) cardSecLabelEl.textContent = "📚 Section & Class";
       if (cardSecValEl) cardSecValEl.textContent = u.section ? `Section ${u.section}` : "Section CSE-A";
       
@@ -111,64 +279,132 @@ const ProfileManager = {
 
       if (customBox2) customBox2.style.display = "block";
       if (customLabel2) customLabel2.textContent = "👨‍🏫 Class Advisor";
-      if (customVal2) customVal2.textContent = u.advisor || "Advisor Demo (CSE-A)";
+      if (customVal2) customVal2.textContent = u.advisor || "Mrs. P. Arularasi (CSE-A)";
 
-    } else if (u.role === "ADVISOR") {
-      if (roleBadgeEl) roleBadgeEl.innerHTML = `👩‍🏫 Class Advisor Demo`;
-      if (subtitleEl) subtitleEl.textContent = `Class Advisor • Section ${u.section || 'CSE-A'} • Department of CSE`;
-      if (cardSecLabelEl) cardSecLabelEl.textContent = "🏢 Academic Designation";
-      if (cardSecValEl) cardSecValEl.textContent = u.title || "Assistant Professor & Class Advisor (CSE-A)";
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "🛡️ Institutional Standing";
+      if (customVal3) customVal3.textContent = "Regular Student • Autonomous";
 
-      if (customBox1) customBox1.style.display = "block";
-      if (customLabel1) customLabel1.textContent = "📍 Office / Cabin";
-      if (customVal1) customVal1.textContent = u.cabin || "Admin Block, Room 204";
-
-      if (customBox2) customBox2.style.display = "block";
-      if (customLabel2) customLabel2.textContent = "🛡️ Advisor Jurisdiction";
-      if (customVal2) customVal2.textContent = `Section ${u.section || 'CSE-A'} OD & Attendance`;
-
-    } else if (u.role === "HOD") {
-      if (roleBadgeEl) roleBadgeEl.innerHTML = `🏛️ HOD Demo`;
-      if (subtitleEl) subtitleEl.textContent = `Head of Department • Computer Science & Engineering`;
-      if (cardSecLabelEl) cardSecLabelEl.textContent = "🏢 Department Leadership";
-      if (cardSecValEl) cardSecValEl.textContent = u.title || "Professor & Head of Department (CSE)";
+    } else if (roleCat === "CLASS_ADVISOR") {
+      if (roleBadgeEl) roleBadgeEl.innerHTML = `👩‍🏫 Class Advisor`;
+      if (subtitleEl) subtitleEl.textContent = `Class Advisor • Section ${u.section || 'CSE-A'} • Department of ${u.department || 'CSE'}`;
+      if (secBox) secBox.style.display = "block";
+      if (cardSecLabelEl) cardSecLabelEl.textContent = "🛡️ Assigned Class / Section";
+      if (cardSecValEl) cardSecValEl.textContent = u.section ? `Section ${u.section}` : "Section CSE-A";
 
       if (customBox1) customBox1.style.display = "block";
-      if (customLabel1) customLabel1.textContent = "📍 Department Office";
-      if (customVal1) customVal1.textContent = u.cabin || "CSE Department Head Office, Tech Block 1";
+      if (customLabel1) customLabel1.textContent = "🏢 Academic Designation";
+      if (customVal1) customVal1.textContent = u.title || "Assistant Professor & Class Advisor (CSE-A)";
 
       if (customBox2) customBox2.style.display = "block";
-      if (customLabel2) customLabel2.textContent = "📊 Jurisdiction";
-      if (customVal2) customVal2.textContent = "All Department Sections & Labs";
+      if (customLabel2) customLabel2.textContent = "📍 Office / Cabin";
+      if (customVal2) customVal2.textContent = u.cabin || "Admin Block, Room 204";
 
-    } else if (u.role === "PRINCIPAL") {
-      if (roleBadgeEl) roleBadgeEl.innerHTML = `👨‍💼 Principal Demo`;
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "🛡️ Advisor Jurisdiction";
+      if (customVal3) customVal3.textContent = `Section ${u.section || 'CSE-A'} OD & Attendance`;
+
+    } else if (roleCat === "STAFF") {
+      if (roleBadgeEl) roleBadgeEl.innerHTML = `👨‍🏫 Faculty / Staff`;
+      if (subtitleEl) subtitleEl.textContent = `Staff Member • Department of ${u.department || 'CSE'}`;
+      if (secBox) secBox.style.display = "none";
+
+      if (customBox1) customBox1.style.display = "block";
+      if (customLabel1) customLabel1.textContent = "🏢 Academic Designation";
+      if (customVal1) customVal1.textContent = u.title || "Assistant Professor";
+
+      if (customBox2) customBox2.style.display = "block";
+      if (customLabel2) customLabel2.textContent = "📍 Office / Cabin";
+      if (customVal2) customVal2.textContent = u.cabin || "Academic Block, Faculty Cabin";
+
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "🛡️ Faculty Standing";
+      if (customVal3) customVal3.textContent = "Authorized Faculty • Autonomous";
+
+    } else if (roleCat === "HOD") {
+      if (roleBadgeEl) roleBadgeEl.innerHTML = `🏛️ Head of Department (HOD)`;
+      if (subtitleEl) subtitleEl.textContent = `Head of Department • ${u.department || 'Computer Science & Engineering'}`;
+      if (secBox) secBox.style.display = "none";
+
+      if (customBox1) customBox1.style.display = "block";
+      if (customLabel1) customLabel1.textContent = "🏢 Department Leadership";
+      if (customVal1) customVal1.textContent = u.title || "Professor & Head of Department (CSE)";
+
+      if (customBox2) customBox2.style.display = "block";
+      if (customLabel2) customLabel2.textContent = "📍 Department Office";
+      if (customVal2) customVal2.textContent = u.cabin || "CSE Department Head Office, Tech Block 1";
+
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "📊 Administrative Scope";
+      if (customVal3) customVal3.textContent = "All Department Sections & Labs";
+
+    } else if (roleCat === "PRINCIPAL") {
+      if (roleBadgeEl) roleBadgeEl.innerHTML = `👨‍💼 Principal`;
       if (subtitleEl) subtitleEl.textContent = `Principal • Gnanamani College of Technology (Autonomous)`;
-      if (cardSecLabelEl) cardSecLabelEl.textContent = "🏛️ Executive Office";
-      if (cardSecValEl) cardSecValEl.textContent = u.title || "Principal & Chief Academic Officer";
+      if (secBox) secBox.style.display = "none";
 
       if (customBox1) customBox1.style.display = "block";
-      if (customLabel1) customLabel1.textContent = "📍 Executive Chamber";
-      if (customVal1) customVal1.textContent = u.cabin || "Principal's Office, Main Administration Block";
+      if (customLabel1) customLabel1.textContent = "🏛️ Executive Office";
+      if (customVal1) customVal1.textContent = u.title || "Principal & Chief Academic Officer";
 
       if (customBox2) customBox2.style.display = "block";
-      if (customLabel2) customLabel2.textContent = "🚨 Direct Channels";
-      if (customVal2) customVal2.textContent = "Direct Student Grievances & College ODs";
+      if (customLabel2) customLabel2.textContent = "📍 Executive Chamber";
+      if (customVal2) customVal2.textContent = u.cabin || "Principal's Office, Main Administration Block";
 
-    } else if (u.role === "ADMIN") {
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "🚨 Governance Scope";
+      if (customVal3) customVal3.textContent = "Executive Institutional Governance & Bonafide Sanctions";
+
+    } else if (roleCat === "ADMIN") {
       if (roleBadgeEl) roleBadgeEl.innerHTML = `⚡ College Administrator`;
       if (subtitleEl) subtitleEl.textContent = `Administration & Finance Directorate • System Administrator`;
-      if (cardSecLabelEl) cardSecLabelEl.textContent = "🏛️ Directorate Office";
-      if (cardSecValEl) cardSecValEl.textContent = u.title || "Chief Finance Officer & System Administrator";
+      if (secBox) secBox.style.display = "none";
 
       if (customBox1) customBox1.style.display = "block";
-      if (customLabel1) customLabel1.textContent = "📍 Office / Cabin";
-      if (customVal1) customVal1.textContent = u.cabin || "Finance Directorate, Room 102";
+      if (customLabel1) customLabel1.textContent = "🏛️ Directorate Office";
+      if (customVal1) customVal1.textContent = u.title || "Chief Finance Officer & System Administrator";
 
       if (customBox2) customBox2.style.display = "block";
-      if (customLabel2) customLabel2.textContent = "🛡️ Administration Scope";
-      if (customVal2) customVal2.textContent = "Institutional Administration, Student Records & Governance";
+      if (customLabel2) customLabel2.textContent = "📍 Office / Cabin";
+      if (customVal2) customVal2.textContent = u.cabin || "Finance Directorate, Room 102";
+
+      if (customBox3) customBox3.style.display = "block";
+      if (customLabel3) customLabel3.textContent = "🛡️ Administration Scope";
+      if (customVal3) customVal3.textContent = "Institutional Administration, Student Records & Governance";
     }
+  },
+
+  async fetchAuthoritativeProfile() {
+    try {
+      const res = await Auth.fetchWithAuth("/api/user/profile");
+      if (res && res.ok) {
+        const fresh = await res.json();
+        const current = Auth.getUser();
+        if (current && fresh) {
+          const merged = {
+            ...current,
+            ...fresh,
+            role: fresh.role || current.role,
+            name: fresh.name || current.name,
+            email: fresh.email || current.email,
+            contact: fresh.contact || current.contact,
+            bio: fresh.bio || current.bio,
+            department: fresh.department || current.department,
+            section: fresh.section || current.section,
+            title: fresh.title || current.title,
+            profilePhoto: fresh.profilePhoto || fresh.photoUrl || current.profilePhoto
+          };
+          if (this.getRoleCategory(merged) !== 'STUDENT') {
+            delete merged.academicYear;
+          }
+          Auth.setSession(Auth.getToken(), merged);
+          return merged;
+        }
+      }
+    } catch (err) {
+      console.warn("[ProfileManager] Could not fetch fresh profile from backend:", err);
+    }
+    return Auth.getUser();
   },
 
   pendingPhotoFile: null,
@@ -368,23 +604,28 @@ const ProfileManager = {
     const user = Auth.getUser();
     if (!user) return;
 
+    const roleCat = this.getRoleCategory(user);
+    const modalTitle = document.getElementById("editProfileModalTitle");
+    if (modalTitle) modalTitle.textContent = this.getRoleModalTitle(roleCat);
+
     const nameInput = document.getElementById("editProfName");
     const contactInput = document.getElementById("editProfContact");
-    const bioInput = document.getElementById("editProfBio");
-    const idInput = document.getElementById("editProfId");
-    const yearInput = document.getElementById("editProfYear");
-    const deptInput = document.getElementById("editProfDept");
-    const secInput = document.getElementById("editProfSection");
     const emailInput = document.getElementById("editProfEmail");
+    const bioInput = document.getElementById("editProfBio");
+    const bioLabel = document.getElementById("editProfBioLabel");
 
     if (nameInput) nameInput.value = user.name || "";
-    if (contactInput) contactInput.value = user.contact || "+91 98765 00000";
-    if (bioInput) bioInput.value = user.bio || `Authorized student record enrolled in IV Year B.E. at Gnanamani College of Technology.`;
-    if (idInput) idInput.value = user.identifier || "";
-    if (yearInput) yearInput.value = user.academicYear || "IV Year B.E.";
-    if (deptInput) deptInput.value = user.department || "Computer Science & Engineering";
-    if (secInput) secInput.value = user.section ? `Section ${user.section}` : "Section CSE-A";
+    if (contactInput) contactInput.value = user.contact || "";
     if (emailInput) emailInput.value = user.email || "";
+    if (bioInput) bioInput.value = user.bio || "";
+    if (bioLabel) {
+      bioLabel.textContent = roleCat === 'STUDENT' ? 'Profile Bio & Academic Notes' : 'Profile Bio & Professional Statement';
+    }
+
+    const readOnlyContainer = document.getElementById("editProfReadOnlyFields");
+    if (readOnlyContainer) {
+      readOnlyContainer.innerHTML = this.renderReadOnlyFieldsHtml(roleCat, user);
+    }
 
     const alertEl = document.getElementById("editProfileAlert");
     if (alertEl) alertEl.style.display = "none";
@@ -407,6 +648,7 @@ const ProfileManager = {
 
     const name = document.getElementById("editProfName").value.trim();
     const contact = document.getElementById("editProfContact").value.trim();
+    const email = document.getElementById("editProfEmail").value.trim();
     const bio = document.getElementById("editProfBio").value.trim();
     const alertEl = document.getElementById("editProfileAlert");
     const succEl = document.getElementById("editProfileSuccess");
@@ -416,9 +658,9 @@ const ProfileManager = {
     if (succEl) succEl.style.display = "none";
 
     // Validation
-    if (!name) {
+    if (!name || name.length < 2) {
       if (alertEl) {
-        alertEl.textContent = "Please enter your full display name.";
+        alertEl.textContent = "Please enter your full display name (at least 2 characters).";
         alertEl.style.display = "block";
       }
       return;
@@ -426,6 +668,13 @@ const ProfileManager = {
     if (!contact || contact.length < 7) {
       if (alertEl) {
         alertEl.textContent = "Please provide a valid contact phone number (at least 7 digits).";
+        alertEl.style.display = "block";
+      }
+      return;
+    }
+    if (!email || !email.includes("@")) {
+      if (alertEl) {
+        alertEl.textContent = "Please provide a valid institutional email address.";
         alertEl.style.display = "block";
       }
       return;
@@ -444,6 +693,7 @@ const ProfileManager = {
         body: JSON.stringify({
           name: name,
           contact: contact,
+          email: email,
           bio: bio
         })
       });
@@ -451,24 +701,48 @@ const ProfileManager = {
       if (res.ok) {
         const updatedUser = await res.json();
         
-        // Update session storage
+        // Update session storage preserving role-appropriate academicYear/title
         const token = Auth.getToken();
-        Auth.setSession(token, {
+        const roleCat = this.getRoleCategory(user);
+        const resolvedYear = (roleCat === 'STUDENT')
+            ? (updatedUser.academicYear || user.academicYear || "IV Year B.E.")
+            : "";
+
+        const merged = {
           ...user,
+          ...updatedUser,
           name: updatedUser.name || name,
           contact: updatedUser.contact || contact,
-          bio: updatedUser.bio || bio,
-          academicYear: "IV Year B.E."
-        });
+          email: updatedUser.email || email,
+          bio: updatedUser.bio || bio
+        };
+        if (roleCat === 'STUDENT') {
+          merged.academicYear = resolvedYear;
+        } else {
+          delete merged.academicYear;
+        }
 
-        // Update Topbar and Profile UI
+        Auth.setSession(token, merged);
+
+        // Update Topbar and Profile UI for all user roles
         const topUser = document.getElementById("topbarUserName");
         if (topUser) topUser.textContent = name;
         const topAvatar = document.getElementById("topbarUserAvatar");
-        if (topAvatar) topAvatar.textContent = name.charAt(0).toUpperCase();
+        if (topAvatar) {
+          const photo = merged.profilePhoto || merged.photoUrl;
+          if (!photo) {
+            topAvatar.textContent = name.charAt(0).toUpperCase();
+          }
+        }
 
         const stName = document.getElementById("studentNameBanner");
         if (stName) stName.textContent = name;
+        const advName = document.getElementById("advisorNameBanner");
+        if (advName) advName.textContent = name;
+        const hodName = document.getElementById("hodNameBanner");
+        if (hodName) hodName.textContent = name;
+        const prinName = document.getElementById("principalNameBanner");
+        if (prinName) prinName.textContent = name;
 
         this.renderProfile(Auth.getUser());
         
@@ -479,11 +753,11 @@ const ProfileManager = {
 
         setTimeout(() => {
           this.closeEditModal();
-          Toast.show("Student profile updated successfully!", "success");
+          Toast.show("Profile updated successfully!", "success");
         }, 600);
 
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         if (alertEl) {
           alertEl.textContent = err.error || "Failed to update profile on backend.";
           alertEl.style.display = "block";
@@ -793,6 +1067,11 @@ const App = {
     }
     this.refreshNotifications();
     if (window.RealtimeSync) RealtimeSync.start();
+    if (window.ProfileManager && ProfileManager.fetchAuthoritativeProfile) {
+      ProfileManager.fetchAuthoritativeProfile().then(fresh => {
+        if (fresh) this.renderTopbarUser(fresh);
+      }).catch(() => {});
+    }
   },
 
   setupRoleViews(user) {
@@ -940,6 +1219,9 @@ const App = {
     } else if (tabName === "profile") {
       document.getElementById("profileView").style.display = "block";
       ProfileManager.renderProfile(user);
+      ProfileManager.fetchAuthoritativeProfile().then(fresh => {
+        if (fresh) ProfileManager.renderProfile(fresh);
+      });
     } else if (tabName === "notifications") {
       document.getElementById("notificationsContainer").style.display = "block";
       this.loadNotifications();
@@ -1224,32 +1506,113 @@ const App = {
     this.isRequestModalOpening = false;
   },
 
+  _downloadingPdfs: new Set(),
+
   async downloadPdf(id) {
     if (!id) return;
+    if (this._downloadingPdfs.has(id)) {
+      Toast.show("Document download already in progress, please wait...", "info");
+      return;
+    }
+    this._downloadingPdfs.add(id);
+
     try {
       const token = Auth.getToken();
-      const res = await fetch(Auth.apiUrl(`/api/od/${encodeURIComponent(id)}/pdf`), {
-        headers: { "Authorization": "Bearer " + token }
-      });
-      if (!res.ok) {
-        if (res.status === 400 || res.status === 403) {
-          const text = await res.text();
-          throw new Error(text || "Download unlocked only for final approved requests.");
-        }
-        throw new Error("Failed to download PDF. Status: " + res.status);
+      if (!token) {
+        throw new Error("Authentication required. Please sign in to download this document.");
       }
+
+      const downloadUrl = Auth.apiUrl(`/api/od/${encodeURIComponent(id)}/pdf`);
+      let res;
+      try {
+        res = await fetch(downloadUrl, {
+          method: "GET",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Accept": "application/pdf"
+          }
+        });
+      } catch (networkErr) {
+        throw new Error("Network connection failed. Unable to reach server.");
+      }
+
+      if (!res.ok) {
+        let errorMsg = `Server unavailable (${res.status})`;
+        try {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const errData = await res.json();
+            errorMsg = errData.error || errData.message || errorMsg;
+          } else {
+            const errText = await res.text();
+            if (errText && errText.trim()) errorMsg = errText.trim();
+          }
+        } catch (_) {}
+
+        if (res.status === 401) {
+          throw new Error("Authentication required. Please sign in again.");
+        } else if (res.status === 403) {
+          throw new Error(errorMsg || "Unauthorized document access.");
+        } else if (res.status === 404) {
+          throw new Error(errorMsg || "Document not found.");
+        } else if (res.status === 400) {
+          throw new Error(errorMsg || "Download unlocked only for final approved requests.");
+        } else if (res.status >= 500) {
+          throw new Error("PDF generation failed on server. Please try again later.");
+        } else {
+          throw new Error(errorMsg);
+        }
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const text = await res.text();
+        const parsed = JSON.parse(text);
+        throw new Error(parsed.error || "PDF generation failed.");
+      }
+
       const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
+      if (!blob || blob.size === 0) {
+        throw new Error("PDF generation failed: Received empty document.");
+      }
+
+      // Extract filename from Content-Disposition if present
+      let filename = `EPOCH-${id}.pdf`;
+      const disposition = res.headers.get("content-disposition");
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '').trim();
+        }
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `EPOCH-${id}.pdf`;
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      Toast.show("Official digitally signed document downloaded!", "success");
+
+      // Mobile fallback if direct click doesn't trigger native save
+      if (isMobile) {
+        window.open(blobUrl, "_blank");
+      }
+
+      // Preserve object URL for 60 seconds to allow browser download manager to finish stream
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 60000);
+
+      Toast.show("Document downloaded successfully!", "success");
     } catch (err) {
-      Toast.show(err.message, "warning");
+      console.error("[downloadPdf] Error:", err);
+      Toast.show(err.message || "Network connection failed.", "danger");
+    } finally {
+      this._downloadingPdfs.delete(id);
     }
   },
 
@@ -1257,29 +1620,40 @@ const App = {
     if (!id) return;
     try {
       const token = Auth.getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please sign in.");
+      }
+
       const res = await fetch(Auth.apiUrl(`/api/complaints/${encodeURIComponent(id)}/pdf`), {
         headers: { "Authorization": "Bearer " + token }
       });
       if (!res.ok) {
-        throw new Error("Unable to download complaint record. Status: " + res.status);
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || "Unable to download complaint record. Status: " + res.status);
       }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
+      a.style.display = "none";
       a.href = url;
       a.download = `${id}-Record.pdf`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      Toast.show("Official grievance & complaint record downloaded!", "success");
+
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 60000);
+
+      Toast.show("Document downloaded successfully!", "success");
     } catch (err) {
-      Toast.show(err.message, "warning");
+      Toast.show(err.message || "Failed to download record.", "danger");
     }
   },
 
   renderRequestDetailsModal(r) {
     const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
     const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
 
     const idEl = document.getElementById("detModalId");
@@ -1287,14 +1661,14 @@ const App = {
 
     const evTitleEl = document.getElementById("detEventTitle");
     if (evTitleEl) {
-      evTitleEl.textContent = r.eventTitle || r.purpose || r.odType || (isBonafide ? "Bonafide Certificate" : (isLeave ? "Leave Application" : "On-Duty Requisition"));
+      evTitleEl.textContent = r.eventTitle || r.purpose || r.odType || (isBonafide ? "Bonafide Certificate" : (isUndertaking ? "75% Attendance Undertaking" : (isLeave ? "Leave Application" : "On-Duty Requisition")));
     }
 
     const catEl = document.getElementById("detCategory");
     if (catEl) {
-      const typeLabel = isBonafide ? "Bonafide Certificate" : (isLeave ? (r.leaveType || r.odType || "Leave Application") : (r.odType || "On-Duty Requisition"));
-      const workflowLabel = isBonafide ? "Institutional Requisition" : "Academic Requisition";
-      catEl.innerHTML = `<span class="badge-tag ${isBonafide ? 'badge-teal' : (isLeave ? 'badge-info' : 'badge-primary')}">${this.escape(typeLabel)}</span> <span style="color:#64748b; font-size:11.5px; margin-left:6px;">${workflowLabel}</span>`;
+      const typeLabel = isBonafide ? "Bonafide Certificate" : (isUndertaking ? "75% Attendance Undertaking" : (isLeave ? (r.leaveType || r.odType || "Leave Application") : (r.odType || "On-Duty Requisition")));
+      const workflowLabel = (isBonafide || isUndertaking) ? "3-Stage Institutional Workflow" : "Academic Requisition";
+      catEl.innerHTML = `<span class="badge-tag ${isBonafide ? 'badge-teal' : (isUndertaking ? 'badge-warning' : (isLeave ? 'badge-info' : 'badge-primary'))}">${this.escape(typeLabel)}</span> <span style="color:#64748b; font-size:11.5px; margin-left:6px;">${workflowLabel}</span>`;
     }
 
     const statusBadgeEl = document.getElementById("detStatusBadge");
@@ -1420,6 +1794,8 @@ const App = {
 
     const user = Auth.getUser();
     const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+    const is3Stage = isBonafide || isUndertaking;
     const isLeave = (r.odType && r.odType.toLowerCase().includes("leave")) || (r.id && r.id.startsWith("EPOCH-LV"));
 
     if (actionPanelEl) actionPanelEl.innerHTML = "";
@@ -1427,8 +1803,8 @@ const App = {
 
     // 1. If request is APPROVED: provide official download button
     if (r.status === "APPROVED") {
-      const dlBtnText = isBonafide ? "📜 Download Approved Request (Bonafide Certificate)" : "📥 Download Approved Request";
-      const dlBtnClass = isBonafide ? "btn btn-primary btn-sm" : "btn btn-success btn-sm";
+      const dlBtnText = isBonafide ? "📜 Download Approved Request (Bonafide Certificate)" : (isUndertaking ? "📋 Download Approved Undertaking Form (PDF)" : "📥 Download Approved Request");
+      const dlBtnClass = (isBonafide || isUndertaking) ? "btn btn-primary btn-sm" : "btn btn-success btn-sm";
       const extraHtml = `
         <button class="${dlBtnClass}" onclick="App.downloadPdf('${r.id}');" style="font-weight:600; display:inline-flex; align-items:center; gap:6px;">
           ${dlBtnText}
@@ -1476,7 +1852,7 @@ const App = {
                   <span style="font-size:20px;">✍️</span>
                   <div>
                     <h4 style="font-size:14px; font-weight:800; color:#065f46; margin:0;">
-                      Class Advisor Official Review & Endorsement (Stage 1 of ${isBonafide ? '3' : '2'})
+                      Class Advisor Official Review & Endorsement (Stage 1 of ${is3Stage ? '3' : '2'})
                     </h4>
                     <div style="font-size:11.5px; color:#047857; margin-top:2px;">
                       Assigned Section: <strong>${this.escape(r.section || 'CSE')}</strong> • Signatory: <strong>${this.escape((user && user.name) || 'Class Advisor')}</strong>
@@ -1569,7 +1945,7 @@ const App = {
                   <span style="font-size:20px;">🏛️</span>
                   <div>
                     <h4 style="font-size:14px; font-weight:800; color:#1e40af; margin:0;">
-                      Head of Department Official Review & Sanction (Stage 2 of ${isBonafide ? '3' : '2'})
+                      Head of Department Official Review & Sanction (Stage 2 of ${is3Stage ? '3' : '2'})
                     </h4>
                     <div style="font-size:11.5px; color:#1d4ed8; margin-top:2px;">
                       Department: <strong>Computer Science & Engineering</strong> • Signatory: <strong>Dr. K. Gopinath (HOD-CSE)</strong>
@@ -1580,7 +1956,7 @@ const App = {
               </div>
 
               <div style="background:#ffffff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; margin-bottom:14px;">
-                ℹ️ <strong>Departmental Sanction Notice:</strong> Class Advisor verification is complete. ${isBonafide ? 'Approving this Bonafide Certificate will endorse it and forward to the Principal for executive institutional seal.' : 'Approving this request will apply your <strong>Official Digital Signature</strong>, grant final academic sanction, and unlock the digitally signed official requisition PDF for the student.'}
+                ℹ️ <strong>Departmental Sanction Notice:</strong> Class Advisor verification is complete. ${is3Stage ? (isUndertaking ? 'Approving this 75% Attendance Undertaking Form will endorse it and forward to the Principal for final executive sanction.' : 'Approving this Bonafide Certificate will endorse it and forward to the Principal for executive institutional seal.') : 'Approving this request will apply your <strong>Official Digital Signature</strong>, grant final academic sanction, and unlock the digitally signed official requisition PDF for the student.'}
               </div>
 
               <div class="form-group" style="margin-bottom:12px;">
@@ -1603,7 +1979,7 @@ const App = {
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                   <button type="button" id="btnHodApprove" class="btn btn-primary" onclick="App.hodActionFromModal('${r.id}', true)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#2563eb; border-color:#2563eb; color:#fff; border-radius:6px; cursor:pointer;">
-                    <span>✅</span> ${isBonafide ? 'Endorse & Forward to Principal' : 'Final Sanction & Approve'}
+                    <span>✅</span> ${is3Stage ? 'Endorse & Forward to Principal' : 'Final Sanction & Approve'}
                   </button>
                   <button type="button" id="btnHodDecline" class="btn btn-danger" onclick="App.hodActionFromModal('${r.id}', false)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#dc2626; border-color:#dc2626; color:#fff; border-radius:6px; cursor:pointer;">
                     <span>❌</span> Decline Request
@@ -1620,7 +1996,7 @@ const App = {
           actionExtraEl.innerHTML = `
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <button type="button" class="btn btn-sm btn-primary" onclick="App.hodActionFromModal('${r.id}', true)" style="background:#2563eb; border-color:#2563eb; color:#fff; font-weight:600;">
-                ✅ ${isBonafide ? 'Endorse & Forward' : 'Sanction & Approve'}
+                ✅ ${is3Stage ? 'Endorse & Forward' : 'Sanction & Approve'}
               </button>
               <button type="button" class="btn btn-sm btn-danger" onclick="App.hodActionFromModal('${r.id}', false)" style="background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600;">
                 ❌ Decline
@@ -1644,7 +2020,7 @@ const App = {
       }
     }
 
-    // 5. Request is PENDING_PRINCIPAL (Bonafide only):
+    // 5. Request is PENDING_PRINCIPAL (Bonafide & Undertaking):
     if (r.status === "PENDING_PRINCIPAL") {
       const isPrin = this.isPrincipalForRequest(user, r);
       if (isPrin) {
@@ -1667,7 +2043,7 @@ const App = {
               </div>
 
               <div style="background:#ffffff; border:1px solid #ddd6fe; border-radius:6px; padding:10px 12px; font-size:12px; color:#334155; margin-bottom:14px;">
-                ℹ️ <strong>Executive Seal Notice:</strong> Class Advisor and HOD endorsements are verified. Granting executive sanction will apply your <strong>Official Principal Digital Signature</strong> and finalize the official Bonafide Certificate.
+                ℹ️ <strong>Executive Seal Notice:</strong> Class Advisor and HOD endorsements are verified. Granting executive sanction will apply your <strong>Official Principal Digital Signature</strong> and finalize the official ${isUndertaking ? '75% Attendance Undertaking Form' : 'Bonafide Certificate'}.
               </div>
 
               <div class="form-group" style="margin-bottom:12px;">
@@ -1687,7 +2063,7 @@ const App = {
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                   <button type="button" id="btnPrinApprove" class="btn btn-primary" onclick="App.principalActionFromModal('${r.id}', true)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#7c3aed; border-color:#7c3aed; color:#fff; border-radius:6px; cursor:pointer;">
-                    <span>✅</span> Grant Institutional Sanction
+                    <span>✅</span> ${isUndertaking ? 'Sanction 75% Attendance Undertaking' : 'Grant Institutional Sanction'}
                   </button>
                   <button type="button" id="btnPrinDecline" class="btn btn-danger" onclick="App.principalActionFromModal('${r.id}', false)" style="display:inline-flex; align-items:center; gap:6px; font-weight:700; padding:8px 18px; font-size:13px; background:#dc2626; border-color:#dc2626; color:#fff; border-radius:6px; cursor:pointer;">
                     <span>❌</span> Decline Request
@@ -1802,8 +2178,9 @@ const App = {
         }
         const updated = await res.json();
         const isBonafide = (updated.odType && updated.odType.toLowerCase().includes("bonafide")) || (updated.id && updated.id.startsWith("EPOCH-BNF"));
-        if (isBonafide) {
-          Toast.show("Bonafide Certificate approved and forwarded to Head of Department (Dr. K. Gopinath).", "success");
+        const is3Stage = isBonafide || (updated.odType && (updated.odType.toLowerCase().includes("undertaking") || updated.odType.includes("75%"))) || (updated.id && updated.id.startsWith("EPOCH-UT"));
+        if (is3Stage) {
+          Toast.show("Request approved and forwarded to Head of Department (Dr. K. Gopinath).", "success");
         } else {
           Toast.show("Request approved and forwarded to Head of Department (Dr. K. Gopinath) for final sanction.", "success");
         }
@@ -1895,8 +2272,11 @@ const App = {
         }
         const updated = await res.json();
         const isBonafide = (updated.odType && updated.odType.toLowerCase().includes("bonafide")) || (updated.id && updated.id.startsWith("EPOCH-BNF"));
+        const isUndertaking = (updated.odType && (updated.odType.toLowerCase().includes("undertaking") || updated.odType.includes("75%"))) || (updated.id && updated.id.startsWith("EPOCH-UT"));
         if (isBonafide) {
           Toast.show("Bonafide Certificate approved and forwarded to Principal (Dr. B. Sanjay Gandhi).", "success");
+        } else if (isUndertaking) {
+          Toast.show("75% Attendance Undertaking endorsed and forwarded to Principal (Dr. B. Sanjay Gandhi).", "success");
         } else {
           Toast.show("Request granted final sanction! Student may now download the approved signed requisition.", "success");
         }
@@ -1939,7 +2319,7 @@ const App = {
         Toast.show("Rejection reason is strictly mandatory. Please specify why the request is rejected.", "warning");
         return;
       }
-      const confirmed = window.confirm("Are you sure you want to decline/reject this Bonafide Certificate request? The student will be notified.");
+      const confirmed = window.confirm("Are you sure you want to decline/reject this application? The student will be notified.");
       if (!confirmed) return;
 
       try {
@@ -1953,7 +2333,7 @@ const App = {
           throw new Error(errData.error || `Failed to decline request (HTTP ${res.status})`);
         }
         const updated = await res.json();
-        Toast.show("Bonafide Certificate rejected by Principal.", "info");
+        Toast.show("Application rejected by Principal.", "info");
         this.renderRequestDetailsModal(updated);
         this.refreshNotifications();
         if (window.PrincipalPortal && typeof PrincipalPortal.loadDashboardData === "function") {
@@ -1973,21 +2353,21 @@ const App = {
       }
     } else {
       const comment = commentEl ? commentEl.value.trim() : "";
-      const confirmed = window.confirm("Are you sure you want to grant final institutional sanction and issue this Bonafide Certificate? Your authorized digital signature will be applied.");
+      const confirmed = window.confirm("Are you sure you want to grant final institutional sanction and approve this application? Your authorized digital signature will be applied.");
       if (!confirmed) return;
 
       try {
         const res = await Auth.fetchWithAuth(`/api/od/${encodeURIComponent(requestId)}/principal-action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ approved: true, reason: comment || "Institutional sanction granted. Certificate issued." })
+          body: JSON.stringify({ approved: true, reason: comment || "Institutional sanction granted." })
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || `Failed to approve request (HTTP ${res.status})`);
         }
         const updated = await res.json();
-        Toast.show("Bonafide Certificate officially sanctioned and issued! Student may now download the certificate.", "success");
+        Toast.show("Application officially sanctioned and issued! Student may now download the approved document.", "success");
         this.renderRequestDetailsModal(updated);
         this.refreshNotifications();
         if (window.PrincipalPortal && typeof PrincipalPortal.loadDashboardData === "function") {
@@ -2018,7 +2398,7 @@ const App = {
 
     let html = '';
 
-    if (isBonafide) {
+    if (isBonafide || (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"))) {
       const advApproved = adv.status === "APPROVED" || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || isApproved;
       const advRejected = isRejected && (r.rejectedBy || "").includes("Advisor");
       const advActive = r.status === "PENDING_ADVISOR";
@@ -2053,9 +2433,11 @@ const App = {
         ? `✅ Officially Sanctioned by Principal Dr. B. Sanjay Gandhi on ${this.escape(prin.timestamp || '')}<br>${prin.notes ? '<em>"' + this.escape(prin.notes) + '"</em><br>' : ''}<span class="signature-stamp-badge">✍️ Principal Executive Signature Sealed</span>`
         : (prinRejected ? `❌ Rejected by Principal Dr. B. Sanjay Gandhi<br><strong>Reason:</strong> ${this.escape(r.rejectionReason || prin.reason || '')}` : (hodApproved ? '⏳ In Queue: Awaiting Principal Final Approval & Certificate Issue' : '⏸️ Pending: Awaiting Department Approvals'));
 
+      const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
+      const docTypeTitle = isUndertaking ? "75% Attendance Undertaking Form" : "Bonafide Certificate";
       const certText = isApproved
-        ? `<div style="color:#047857; font-weight:700;">🎉 Bonafide Certificate Officially Issued & Digitally Signed!</div><div style="font-size:11.5px; color:#475569; margin-top:2px;">Bearing verified credentials and signatures of Class Advisor, HOD, and Principal.</div>`
-        : `<div style="color:#64748b;">🔒 Certificate download will unlock immediately upon Principal executive approval.</div>`;
+        ? `<div style="color:#047857; font-weight:700;">🎉 ${docTypeTitle} Officially Issued & Digitally Signed!</div><div style="font-size:11.5px; color:#475569; margin-top:2px;">Bearing verified credentials and signatures of Class Advisor, HOD, and Principal.</div>`
+        : `<div style="color:#64748b;">🔒 Form download will unlock immediately upon Principal executive approval.</div>`;
 
       html += `
         <div class="workflow-progress-tracker" style="margin-bottom:16px;">
@@ -2082,7 +2464,7 @@ const App = {
             <div class="workflow-step-line ${certNodeClass}"></div>
             <div class="workflow-step-node ${certNodeClass}">
               <div class="workflow-step-circle">${certIcon}</div>
-              <div class="workflow-step-label">Certificate<br>Available</div>
+              <div class="workflow-step-label">${isUndertaking ? 'Undertaking' : 'Certificate'}<br>Available</div>
             </div>
           </div>
         </div>
@@ -2348,7 +2730,7 @@ const App = {
       r.status === "REJECTED" && (r.rejectedBy || "").includes("HOD")
     );
 
-    if (isBonafide) {
+    if (isBonafide || (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"))) {
       html += renderCard(
         "Principal",
         prin,

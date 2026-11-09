@@ -41,6 +41,8 @@ public class PdfGenerationService {
 
         if (req.isBonafide()) {
             buildBonafideCertificatePdf(document, req);
+        } else if (req.isUndertaking()) {
+            buildUndertakingCertificatePdf(document, req);
         } else {
             buildNonBonafideApprovalPdf(document, req);
         }
@@ -197,6 +199,180 @@ public class PdfGenerationService {
                 req.getPrincipalDecision(),
                 "bsanjaygandhi",
                 boldFont, regularFont, 195f
+        ));
+
+        document.add(sigTable);
+    }
+
+    /**
+     * 75% Attendance Shortage Undertaking PDF:
+     * - College Header: GNANAMANI COLLEGE OF TECHNOLOGY
+     * - Title: UNDERTAKING FOR ATTENDANCE SHORTAGE (< 75%)
+     * - Detailed Student Identity and Attendance Shortage Particulars
+     * - Formal Undertaking & Declaration text
+     * - 3 Signatures: Class Advisor, HOD, Principal
+     */
+    private void buildUndertakingCertificatePdf(Document document, OdRequest req) throws Exception {
+        Font collegeFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18f, new Color(15, 41, 66));
+        Font subTitleFont = FontFactory.getFont(FontFactory.HELVETICA, 10f, new Color(71, 85, 105));
+        Font deptFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, new Color(30, 58, 95));
+        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13.5f, new Color(15, 41, 66));
+        Font boldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, new Color(30, 41, 59));
+        Font regularFont = FontFactory.getFont(FontFactory.HELVETICA, 10f, Color.BLACK);
+        Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 10f, Color.BLACK);
+        Font bodyBoldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f, new Color(15, 41, 66));
+
+        // Header Table
+        PdfPTable headerTable = new PdfPTable(1);
+        headerTable.setWidthPercentage(100);
+
+        PdfPCell c1 = new PdfPCell(new Phrase("GNANAMANI COLLEGE OF TECHNOLOGY", collegeFont));
+        c1.setHorizontalAlignment(Element.ALIGN_CENTER);
+        c1.setBorder(Rectangle.NO_BORDER);
+        c1.setPaddingBottom(3f);
+        headerTable.addCell(c1);
+
+        PdfPCell c2 = new PdfPCell(new Phrase("(An Autonomous Institution - Affiliated to Anna University, Chennai)", subTitleFont));
+        c2.setHorizontalAlignment(Element.ALIGN_CENTER);
+        c2.setBorder(Rectangle.NO_BORDER);
+        c2.setPaddingBottom(2f);
+        headerTable.addCell(c2);
+
+        PdfPCell cLoc = new PdfPCell(new Phrase("NH-7, A.K. Samuthiram, Pachal (PO), Namakkal - 637 018, Tamil Nadu", subTitleFont));
+        cLoc.setHorizontalAlignment(Element.ALIGN_CENTER);
+        cLoc.setBorder(Rectangle.NO_BORDER);
+        cLoc.setPaddingBottom(4f);
+        headerTable.addCell(cLoc);
+
+        PdfPCell c3 = new PdfPCell(new Phrase("DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING", deptFont));
+        c3.setHorizontalAlignment(Element.ALIGN_CENTER);
+        c3.setPaddingTop(3f);
+        c3.setPaddingBottom(5f);
+        c3.setBorder(Rectangle.NO_BORDER);
+        headerTable.addCell(c3);
+
+        PdfPCell cDivider = new PdfPCell(new Phrase(""));
+        cDivider.setBorder(Rectangle.BOTTOM);
+        cDivider.setBorderColor(new Color(15, 41, 66));
+        cDivider.setBorderWidth(1.5f);
+        headerTable.addCell(cDivider);
+
+        headerTable.setSpacingAfter(8f);
+        document.add(headerTable);
+
+        // Undertaking Banner
+        PdfPTable certTitleTable = new PdfPTable(1);
+        certTitleTable.setWidthPercentage(85);
+        PdfPCell certCell = new PdfPCell(new Phrase("UNDERTAKING FOR ATTENDANCE SHORTAGE (< 75%)", titleFont));
+        certCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        certCell.setBackgroundColor(new Color(241, 245, 249));
+        certCell.setPadding(6f);
+        certCell.setBorderColor(new Color(15, 41, 66));
+        certTitleTable.addCell(certCell);
+        certTitleTable.setSpacingAfter(12f);
+        document.add(certTitleTable);
+
+        // Metadata: Reference Number & Approval Date
+        PdfPTable metaTable = new PdfPTable(2);
+        metaTable.setWidthPercentage(100);
+        metaTable.setWidths(new float[]{1, 1});
+        metaTable.setSpacingAfter(10f);
+
+        String issueDate = req.getPrincipalDecision() != null && req.getPrincipalDecision().get("timestamp") != null
+                ? (String) req.getPrincipalDecision().get("timestamp")
+                : (req.getLastUpdatedAt() != null ? req.getLastUpdatedAt() : req.getSubmittedAt());
+
+        metaTable.addCell(createCell("Form Reference ID: " + req.getId(), boldFont, Element.ALIGN_LEFT));
+        metaTable.addCell(createCell("Final Sanction Date: " + issueDate, regularFont, Element.ALIGN_RIGHT));
+        document.add(metaTable);
+
+        // Student Details & Shortage Table
+        PdfPTable studentTable = new PdfPTable(4);
+        studentTable.setWidthPercentage(100);
+        studentTable.setWidths(new float[]{1.6f, 2f, 1.6f, 2f});
+        studentTable.setSpacingAfter(12f);
+
+        addTableRow(studentTable, "Register Number:", req.getRegNo(), "Student Name:", req.getStudentName(), boldFont, regularFont, 7f, 28f);
+        addTableRow(studentTable, "Department:", req.getDept(), "Class / Section:", req.getSection(), boldFont, regularFont, 7f, 28f);
+        
+        String yr = req.getAcademicYear() != null && !req.getAcademicYear().isEmpty() ? req.getAcademicYear() : "IV Year B.E.";
+        String stType = req.getStudentType() != null ? req.getStudentType() : "Day Scholar";
+        addTableRow(studentTable, "Academic Year:", yr, "Student Type:", stType, boldFont, regularFont, 7f, 28f);
+
+        String attPct = req.getAttendancePercentage() != null && !req.getAttendancePercentage().isEmpty()
+                ? req.getAttendancePercentage() + "%" : "< 75%";
+        String parentPhone = req.getParentContact() != null && !req.getParentContact().isEmpty()
+                ? req.getParentContact() : "Not Provided";
+        addTableRow(studentTable, "Recorded Attendance:", attPct, "Parent / Guardian Contact:", parentPhone, boldFont, regularFont, 7f, 28f);
+
+        String shortageReason = req.getReason() != null && !req.getReason().isEmpty()
+                ? req.getReason() : (req.getEventTitle() != null ? req.getEventTitle() : "Attendance Shortage below 75%");
+        addTableRowFullWidth(studentTable, "Reason for Shortage:", shortageReason, boldFont, regularFont, 7f, 34f);
+
+        if (req.getSupportingDetails() != null && !req.getSupportingDetails().isEmpty() && !req.getSupportingDetails().equalsIgnoreCase(shortageReason)) {
+            addTableRowFullWidth(studentTable, "Detailed Explanation:", req.getSupportingDetails(), boldFont, regularFont, 7f, 34f);
+        }
+
+        document.add(studentTable);
+
+        // Undertaking Declaration Box
+        PdfPTable declTable = new PdfPTable(1);
+        declTable.setWidthPercentage(100);
+        declTable.setSpacingAfter(14f);
+
+        PdfPCell declCell = new PdfPCell();
+        declCell.setBackgroundColor(new Color(248, 250, 252));
+        declCell.setBorderColor(new Color(203, 213, 225));
+        declCell.setPadding(8f);
+
+        Paragraph pDeclTitle = new Paragraph("STUDENT UNDERTAKING & DECLARATION", bodyBoldFont);
+        pDeclTitle.setSpacingAfter(4f);
+        declCell.addElement(pDeclTitle);
+
+        Paragraph pDeclBody = new Paragraph(
+                "I hereby solemnly declare and undertake that my overall attendance for the current semester is below the mandatory 75% threshold due to genuine reasons detailed above. I assure the institutional authorities that I will maintain regular attendance henceforth, attend all compensatory classes, and strictly abide by the rules and regulations prescribed by Anna University and Gnanamani College of Technology. I acknowledge that maintaining requisite attendance is an essential prerequisite for semester examination eligibility.",
+                bodyFont);
+        pDeclBody.setLeading(14f);
+        pDeclBody.setSpacingAfter(6f);
+        declCell.addElement(pDeclBody);
+
+        Paragraph pDeclStatus = new Paragraph(
+                "Digital Declaration Status: Verified & Electronically Signed by Student (" + req.getRegNo() + ") at Submission",
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8.5f, new Color(22, 101, 52)));
+        declCell.addElement(pDeclStatus);
+
+        declTable.addCell(declCell);
+        document.add(declTable);
+
+        // 3 Signature Columns: Class Advisor, HOD, Principal
+        PdfPTable sigTable = new PdfPTable(3);
+        sigTable.setWidthPercentage(100);
+        sigTable.setWidths(new float[]{1f, 1f, 1f});
+        sigTable.setSpacingBefore(10f);
+        sigTable.setSpacingAfter(0f);
+
+        // 1. Advisor
+        sigTable.addCell(createSignatureCell(
+                "Class Advisor (" + (req.getSection() != null ? req.getSection() : "CSE") + ")",
+                req.getAdvisorDecision(),
+                OdService.getAdvisorForSection(req.getSection()),
+                boldFont, regularFont, 160f
+        ));
+
+        // 2. HOD
+        sigTable.addCell(createSignatureCell(
+                "Head of Department (CSE)",
+                req.getHodDecision(),
+                "gopinath",
+                boldFont, regularFont, 160f
+        ));
+
+        // 3. Principal
+        sigTable.addCell(createSignatureCell(
+                "Principal",
+                req.getPrincipalDecision(),
+                "bsanjaygandhi",
+                boldFont, regularFont, 160f
         ));
 
         document.add(sigTable);

@@ -15,7 +15,9 @@ const PrincipalPortal = {
 
   isPrincipalScope(r) {
     if (!r) return false;
-    return r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const t = (r.odType || "").toLowerCase();
+    const id = r.id || "";
+    return r.requiresPrincipalApproval || t.includes("bonafide") || t.includes("undertaking") || t.includes("75%") || id.startsWith("EPOCH-BNF") || id.startsWith("EPOCH-UT");
   },
 
   isPending(r) {
@@ -336,8 +338,8 @@ const PrincipalPortal = {
       const res = await Auth.fetchWithAuth("/api/od/principal");
       if (res.ok) {
         const list = await res.json();
-        // Strictly filter to Bonafide requests requiring Principal approval
-        this.odRequests = list.filter(r => r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF")));
+        // Strictly filter to institutional requests requiring Principal approval (Bonafide & Undertaking)
+        this.odRequests = list.filter(r => this.isPrincipalScope(r));
         this.renderOdRequests();
         return;
       }
@@ -345,7 +347,7 @@ const PrincipalPortal = {
       console.warn("Using local demo Principal OD requests:", e);
     }
     if (window.DemoStore && !Auth.getToken()) {
-      this.odRequests = DemoStore.getOdRequests().filter(r => (r.requiresPrincipalApproval || (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"))) && (r.status === "PENDING_PRINCIPAL" || r.principalDecision));
+      this.odRequests = DemoStore.getOdRequests().filter(r => this.isPrincipalScope(r) && (r.status === "PENDING_PRINCIPAL" || r.principalDecision));
       this.renderOdRequests();
     }
   },
@@ -358,7 +360,7 @@ const PrincipalPortal = {
     if (!tbody) return;
 
     if (this.odRequests.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:28px; color:#64748b;">📜 No Bonafide Certificate requests currently awaiting Principal final approval. (OD & Leave requests are finalized at HOD stage).</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:28px; color:#64748b;">📜 No institutional requests (Bonafide Certificates / 75% Attendance Undertakings) currently awaiting Principal final approval. (OD & Leave requests are finalized at HOD stage).</td></tr>';
       return;
     }
 
@@ -823,13 +825,18 @@ const PrincipalPortal = {
       `;
     }
 
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
     const titleEl = document.querySelector("#principalOdModal .modal-title");
     if (titleEl) {
-      titleEl.textContent = `📜 Principal Executive Review: Bonafide Certificate (${r.id}) — Stage 3 Final Approval`;
+      if (isUndertaking) {
+        titleEl.textContent = `📋 Principal Executive Review: 75% Attendance Undertaking (${r.id}) — Stage 3 Final Sanction`;
+      } else {
+        titleEl.textContent = `📜 Principal Executive Review: Bonafide Certificate (${r.id}) — Stage 3 Final Approval`;
+      }
     }
     const approveBtn = document.querySelector("#principalOdModal .btn-success");
     if (approveBtn) {
-      approveBtn.textContent = "🏛️ Grant Principal Approval & Issue Certificate";
+      approveBtn.textContent = isUndertaking ? "🏛️ Grant Principal Sanction & Issue Form" : "🏛️ Grant Principal Approval & Issue Certificate";
     }
 
     const rejBox = document.getElementById("prinOdRejectionBox");
@@ -848,6 +855,8 @@ const PrincipalPortal = {
 
   async approveOd() {
     if (!this.activeOdId) return;
+    const r = this.odRequests.find(x => x.id === this.activeOdId);
+    const isUndertaking = r && ((r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT")));
 
     try {
       const res = await Auth.fetchWithAuth(`/api/od/${this.activeOdId}/principal-action`, {
@@ -864,7 +873,11 @@ const PrincipalPortal = {
       this.closeOdModal();
       await this.loadOdRequests();
       App.refreshNotifications();
-      Toast.show("Principal executive approval granted! Official Bonafide Certificate issued with institutional signatures.", "success");
+      if (isUndertaking) {
+        Toast.show("Principal executive sanction granted! 75% Attendance Undertaking form officially issued.", "success");
+      } else {
+        Toast.show("Principal executive approval granted! Official Bonafide Certificate issued with institutional signatures.", "success");
+      }
     } catch (err) {
       Toast.show("Error: " + err.message, "danger");
     }

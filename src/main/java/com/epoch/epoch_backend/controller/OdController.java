@@ -1,6 +1,7 @@
 package com.epoch.epoch_backend.controller;
 
 import com.epoch.epoch_backend.model.OdRequest;
+import com.epoch.epoch_backend.model.OdStatus;
 import com.epoch.epoch_backend.model.UserProfile;
 import com.epoch.epoch_backend.model.UserRole;
 import com.epoch.epoch_backend.service.OdService;
@@ -234,30 +235,57 @@ public class OdController {
     public ResponseEntity<?> downloadPdf(@PathVariable String id) {
         try {
             UserProfile user = getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(errorBody("Authentication required. Please sign in to download this document."));
+            }
+
             OdRequest req = odService.getRequestById(id);
-            if (req == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Request not found"));
+            if (req == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(errorBody("Document not found. Request reference: " + id));
+            }
 
             // Authorization: Only the student themselves or authorized staff can download
-            if (user.getRole() == UserRole.STUDENT && !req.getRegNo().equals(user.getIdentifier())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
-            }
-            if (user.getRole() == UserRole.ADVISOR) {
+            if (user.getRole() == UserRole.STUDENT) {
+                if (req.getRegNo() != null && user.getIdentifier() != null
+                        && !req.getRegNo().trim().equalsIgnoreCase(user.getIdentifier().trim())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(errorBody("Unauthorized document access. You can only download your own approved requests."));
+                }
+            } else if (user.getRole() == UserRole.ADVISOR) {
                 String advSec = user.getSection();
                 if (advSec == null || advSec.trim().isEmpty()) {
                     advSec = OdService.getSectionForAdvisor(user.getIdentifier());
                 }
                 if (advSec != null && req.getSection() != null && !OdService.isSameSection(advSec, req.getSection())) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Access denied"));
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(errorBody("Unauthorized document access. You can only download requests from your assigned section."));
                 }
             }
 
+            if (req.getStatus() != OdStatus.APPROVED) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(errorBody("Download unlocked only for final approved requests. Current status: " + req.getStatus()));
+            }
+
             byte[] pdfBytes = pdfService.generateApprovedPdf(req);
+            if (pdfBytes == null || pdfBytes.length == 0) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(errorBody("PDF generation failed. Empty document produced."));
+            }
+
+            String cleanFilename = "EPOCH-" + id.replaceAll("[^a-zA-Z0-9.-]", "_") + ".pdf";
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + id + ".pdf\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + cleanFilename + "\"")
+                    .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Content-Disposition")
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(errorBody("PDF generation failed: " + (ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName())));
         }
     }
 }

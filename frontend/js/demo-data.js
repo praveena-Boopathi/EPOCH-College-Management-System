@@ -48,6 +48,18 @@ const DemoStore = {
     "cabin": "Admin Block, Room 206",
     "bio": "Academic advisor for Section CSE-C."
   },
+  "kavitha": {
+    "identifier": "kavitha",
+    "name": "Dr. M. Kavitha",
+    "role": "STAFF",
+    "section": "ALL",
+    "dept": "Computer Science & Engineering",
+    "email": "kavitha@gct.ac.in",
+    "contact": "+91 98765 00015",
+    "title": "Assistant Professor (CSE)",
+    "cabin": "Faculty Cabin, Tech Block 2",
+    "bio": "Faculty member in the Department of Computer Science & Engineering."
+  },
   "gopinath": {
     "identifier": "gopinath",
     "name": "Dr. K. Gopinath",

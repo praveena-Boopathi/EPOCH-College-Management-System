@@ -45,6 +45,8 @@ public class OdRequest {
     private String hostelDetails;
     private String parentContact;
     private String studentUid;
+    private String attendancePercentage;
+    private String undertakingDeclaration;
 
     public OdRequest() {}
 
@@ -177,4 +179,23 @@ public class OdRequest {
         return type.contains("leave") || idStr.contains("-LV-") || title.contains("leave") || type.contains("day scholar") || type.contains("hosteller");
     }
     public void setLeave(boolean leave) {}
+
+    @com.google.cloud.firestore.annotation.Exclude
+    public boolean isUndertaking() {
+        String type = (odType != null ? odType : "").toLowerCase();
+        String idStr = (id != null ? id : "").toUpperCase();
+        String title = (eventTitle != null ? eventTitle : "").toLowerCase();
+        String rsn = (reason != null ? reason : "").toLowerCase();
+        return type.contains("undertaking") || type.contains("75%") || type.contains("attendance undertaking")
+                || idStr.contains("-UT-") || idStr.contains("UT-")
+                || title.contains("undertaking") || title.contains("75% below")
+                || rsn.contains("undertaking");
+    }
+    public void setUndertaking(boolean undertaking) {}
+
+    public String getAttendancePercentage() { return attendancePercentage; }
+    public void setAttendancePercentage(String attendancePercentage) { this.attendancePercentage = attendancePercentage; }
+
+    public String getUndertakingDeclaration() { return undertakingDeclaration; }
+    public void setUndertakingDeclaration(String undertakingDeclaration) { this.undertakingDeclaration = undertakingDeclaration; }
 }

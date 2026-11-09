@@ -9,7 +9,7 @@
   'use strict';
 
   var PRODUCTION_BACKEND_URL = 'https://epoch-college-management-system-2.onrender.com';
-  var LOCAL_BACKEND_URL = '';
+  var LOCAL_BACKEND_URL = 'http://localhost:8083';
 
   function resolveBackendBase() {
     // 1. Explicit window override (e.g. injected by test harnesses)
@@ -36,6 +36,10 @@
     } catch (e) {}
 
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+      var port = global.location && global.location.port ? global.location.port : '';
+      if (!port || port === '8083') {
+        return '';
+      }
       return LOCAL_BACKEND_URL;
     }
 

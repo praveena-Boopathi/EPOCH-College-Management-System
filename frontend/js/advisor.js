@@ -497,10 +497,13 @@ const AdvisorPortal = {
     }
 
     const isBonafide = (r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF"));
+    const isUndertaking = (r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT"));
     const titleEl = document.querySelector("#advisorReviewModal .modal-title");
     if (titleEl) {
       if (isBonafide) {
         titleEl.textContent = `📜 Review: Bonafide Certificate (${r.id}) — Stage 1 of 3 (Advisor ➔ HOD ➔ Principal)`;
+      } else if (isUndertaking) {
+        titleEl.textContent = `📋 Review: 75% Attendance Undertaking (${r.id}) — Stage 1 of 3 (Advisor ➔ HOD ➔ Principal)`;
       } else {
         titleEl.textContent = `📝 Review: ${r.odType} (${r.id}) — Stage 1 of 2 (Advisor ➔ HOD Final)`;
       }
@@ -535,6 +538,7 @@ const AdvisorPortal = {
     if (!this.activeRequestId) return;
     const r = this.requests.find(x => x.id === this.activeRequestId);
     const isBonafide = r && ((r.odType && r.odType.toLowerCase().includes("bonafide")) || (r.id && r.id.startsWith("EPOCH-BNF")));
+    const isUndertaking = r && ((r.odType && (r.odType.toLowerCase().includes("undertaking") || r.odType.includes("75%"))) || (r.id && r.id.startsWith("EPOCH-UT")));
 
     const comment = (document.getElementById("advisorReviewCommentInput")?.value || "").trim();
 
@@ -555,6 +559,8 @@ const AdvisorPortal = {
       App.refreshNotifications();
       if (isBonafide) {
         Toast.show("Bonafide Certificate approved and forwarded to HOD (Dr. Gopinath).", "success");
+      } else if (isUndertaking) {
+        Toast.show("75% Attendance Undertaking endorsed and forwarded to HOD (Dr. Gopinath).", "success");
       } else {
         Toast.show("Request approved and forwarded to HOD for final sanction.", "success");
       }
