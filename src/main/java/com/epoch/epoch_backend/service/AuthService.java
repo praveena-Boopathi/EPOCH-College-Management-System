@@ -104,8 +104,10 @@ public class AuthService {
         );
         if (profile.getRole() == UserRole.STUDENT) {
             resp.setAcademicYear(profile.getAcademicYear() != null ? profile.getAcademicYear() : UserService.CURRENT_ACADEMIC_YEAR);
+            resp.setAdvisor(UserService.resolveClassAdvisorForSection(profile.getSection()));
         } else {
             resp.setAcademicYear(null);
+            resp.setAdvisor(null);
         }
         resp.setTitle(profile.getTitle());
         resp.setBio(profile.getBio());

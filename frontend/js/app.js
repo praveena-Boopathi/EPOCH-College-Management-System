@@ -75,13 +75,41 @@ const ProfileManager = {
     }
   },
 
+  resolveClassAdvisorForSection(section, includeSection = true) {
+    if (!section || typeof section !== 'string' || !section.trim()) {
+      return 'Advisor assignment unavailable';
+    }
+    const cleaned = section
+      .trim()
+      .toUpperCase()
+      .replace(/^SECTION\s*/i, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/CSE([ABC])$/, 'CSE-$1');
+    let advName = null;
+    let normSec = null;
+    if (cleaned === 'CSE-A') {
+      advName = 'Mrs. P. Arularasi';
+      normSec = 'CSE-A';
+    } else if (cleaned === 'CSE-B') {
+      advName = 'Mrs. Dhivya Bharathi';
+      normSec = 'CSE-B';
+    } else if (cleaned === 'CSE-C') {
+      advName = 'Mrs. Rajavathi Jayapriya';
+      normSec = 'CSE-C';
+    }
+    if (!advName) {
+      return 'Advisor assignment unavailable';
+    }
+    return includeSection ? `${advName} (${normSec})` : advName;
+  },
+
   renderReadOnlyFieldsHtml(roleCat, user) {
     const esc = (val) => this.escapeHtml(val);
     if (roleCat === 'STUDENT') {
       const yearStr = user.academicYear || 'IV Year B.E.';
       const deptStr = user.department || 'Computer Science & Engineering';
-      const secStr = user.section ? `Section ${user.section}` : 'Section CSE-A';
-      const advStr = user.advisor || 'Mrs. P. Arularasi (CSE-A)';
+      const secStr = (user.section && String(user.section).trim()) ? `Section ${String(user.section).trim()}` : 'Section Unassigned';
+      const advStr = this.resolveClassAdvisorForSection(user.section, true);
       return `
         <div class="form-group">
           <label style="font-size:12px; color:#64748b; font-weight:600;">🆔 Registration Number</label>
@@ -267,11 +295,12 @@ const ProfileManager = {
     // Role-specific badges and details
     if (roleCat === "STUDENT") {
       const yearStr = u.academicYear || "IV Year B.E.";
+      const displaySec = (u.section && String(u.section).trim()) ? String(u.section).trim() : null;
       if (roleBadgeEl) roleBadgeEl.innerHTML = `🎓 Student`;
-      if (subtitleEl) subtitleEl.textContent = `Reg No: ${u.identifier} • ${yearStr} • Dept: ${u.department || 'CSE'} (Section ${u.section || 'CSE-A'})`;
+      if (subtitleEl) subtitleEl.textContent = `Reg No: ${u.identifier} • ${yearStr} • Dept: ${u.department || 'CSE'} (${displaySec ? 'Section ' + displaySec : 'Section Unassigned'})`;
       if (secBox) secBox.style.display = "block";
       if (cardSecLabelEl) cardSecLabelEl.textContent = "📚 Section & Class";
-      if (cardSecValEl) cardSecValEl.textContent = u.section ? `Section ${u.section}` : "Section CSE-A";
+      if (cardSecValEl) cardSecValEl.textContent = displaySec ? `Section ${displaySec}` : "Section Unassigned";
       
       if (customBox1) customBox1.style.display = "block";
       if (customLabel1) customLabel1.textContent = "🎓 Academic Year";
@@ -279,7 +308,7 @@ const ProfileManager = {
 
       if (customBox2) customBox2.style.display = "block";
       if (customLabel2) customLabel2.textContent = "👨‍🏫 Class Advisor";
-      if (customVal2) customVal2.textContent = u.advisor || "Mrs. P. Arularasi (CSE-A)";
+      if (customVal2) customVal2.textContent = this.resolveClassAdvisorForSection(u.section, true);
 
       if (customBox3) customBox3.style.display = "block";
       if (customLabel3) customLabel3.textContent = "🛡️ Institutional Standing";
@@ -390,12 +419,15 @@ const ProfileManager = {
             contact: fresh.contact || current.contact,
             bio: fresh.bio || current.bio,
             department: fresh.department || current.department,
-            section: fresh.section || current.section,
+            section: fresh.section !== undefined ? fresh.section : current.section,
             title: fresh.title || current.title,
             profilePhoto: fresh.profilePhoto || fresh.photoUrl || current.profilePhoto
           };
           if (this.getRoleCategory(merged) !== 'STUDENT') {
             delete merged.academicYear;
+            delete merged.advisor;
+          } else {
+            merged.advisor = this.resolveClassAdvisorForSection(merged.section, true);
           }
           Auth.setSession(Auth.getToken(), merged);
           return merged;
@@ -777,12 +809,267 @@ const ProfileManager = {
   }
 };
 
+const SidebarManager = {
+  _initialized: false,
+  STORAGE_KEY: "epoch_sidebar_collapsed",
+
+  isMobile() {
+    return window.innerWidth <= 768;
+  },
+
+  getContainer() {
+    return document.getElementById("appView");
+  },
+
+  getSidebar() {
+    return document.getElementById("appSidebar");
+  },
+
+  getToggleBtn() {
+    return document.getElementById("sidebarToggleBtn");
+  },
+
+  init() {
+    if (!this._initialized) {
+      this._initialized = true;
+      const sidebar = this.getSidebar();
+
+      // Close mobile drawer when any navigation link or action inside sidebar is activated
+      if (sidebar) {
+        sidebar.addEventListener("click", (e) => {
+          const link = e.target.closest(".sidebar-link");
+          if (link && this.isMobile()) {
+            this.close();
+          }
+        });
+        sidebar.addEventListener("keydown", (e) => {
+          const link = e.target.closest(".sidebar-link");
+          if (link && (e.key === " " || e.key === "Enter")) {
+            e.preventDefault();
+            link.click();
+          }
+        });
+      }
+
+      // Global Escape to close mobile drawer + Alt+M shortcut to toggle sidebar
+      document.addEventListener("keydown", (e) => {
+        const appView = this.getContainer();
+        if (!appView || appView.style.display === "none") return;
+
+        if (e.key === "Escape" && this.isMobile() && this.isOpen()) {
+          e.preventDefault();
+          this.close(true);
+        } else if (e.altKey && (e.key === "m" || e.key === "M")) {
+          e.preventDefault();
+          this.toggle();
+        }
+      });
+
+      // Keep ARIA state & layout synchronized on viewport resize
+      window.addEventListener("resize", () => this.syncAccessibilityState());
+    }
+
+    // Restore desktop collapse preference; mobile drawer always starts closed
+    const container = this.getContainer();
+    if (container) {
+      let savedCollapsed = false;
+      try {
+        savedCollapsed = localStorage.getItem(this.STORAGE_KEY) === "true";
+      } catch (e) {}
+
+      if (savedCollapsed) {
+        container.classList.add("sidebar-collapsed");
+      } else {
+        container.classList.remove("sidebar-collapsed");
+      }
+      container.classList.remove("sidebar-mobile-open");
+      document.body.style.overflow = "";
+    }
+    this.syncAccessibilityState();
+  },
+
+  isOpen() {
+    const container = this.getContainer();
+    if (!container) return false;
+    if (this.isMobile()) {
+      return container.classList.contains("sidebar-mobile-open");
+    }
+    return !container.classList.contains("sidebar-collapsed");
+  },
+
+  open() {
+    const container = this.getContainer();
+    if (!container) return;
+    if (this.isMobile()) {
+      container.classList.add("sidebar-mobile-open");
+      document.body.style.overflow = "hidden";
+    } else {
+      container.classList.remove("sidebar-collapsed");
+      try { localStorage.setItem(this.STORAGE_KEY, "false"); } catch (e) {}
+    }
+    this.syncAccessibilityState();
+  },
+
+  close(restoreFocus = false) {
+    const container = this.getContainer();
+    if (!container) return;
+    if (this.isMobile()) {
+      container.classList.remove("sidebar-mobile-open");
+      document.body.style.overflow = "";
+    } else {
+      container.classList.add("sidebar-collapsed");
+      try { localStorage.setItem(this.STORAGE_KEY, "true"); } catch (e) {}
+    }
+    this.syncAccessibilityState();
+    if (restoreFocus) {
+      const btn = this.getToggleBtn();
+      if (btn) btn.focus();
+    }
+  },
+
+  toggle() {
+    if (this.isOpen()) {
+      this.close();
+    } else {
+      this.open();
+    }
+  },
+
+  syncAccessibilityState() {
+    const open = this.isOpen();
+    const btn = this.getToggleBtn();
+    const sidebar = this.getSidebar();
+    const backdrop = document.getElementById("sidebarBackdrop");
+
+    if (btn) {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.setAttribute("aria-label", open ? "Close navigation sidebar" : "Open navigation sidebar");
+    }
+    if (sidebar) {
+      sidebar.setAttribute("aria-hidden", open ? "false" : "true");
+      try { sidebar.inert = !open; } catch (e) {}
+    }
+    if (backdrop) {
+      backdrop.setAttribute("aria-hidden", (this.isMobile() && open) ? "false" : "true");
+    }
+    if (!this.isMobile()) {
+      const container = this.getContainer();
+      if (container) container.classList.remove("sidebar-mobile-open");
+      document.body.style.overflow = "";
+    }
+  },
+
+  applyRoleNavigation(user) {
+    if (!user) return;
+    const role = (user.role || "").toUpperCase();
+
+    const sigLink = document.getElementById("sidebarSignatureLink");
+    const cmpLink = document.getElementById("sidebarComplaintsLink");
+    const trackLink = document.getElementById("sidebarTrackingLink");
+    const verifyLink = document.getElementById("sidebarVerifyLink");
+    const asstBtn = document.getElementById("assistantFloatingBtn");
+    const annLink = document.getElementById("sidebarAnnouncementsLink");
+    const historyLink = document.getElementById("nav-history")?.closest("li");
+    const msgLink = document.getElementById("nav-messages")?.closest("li");
+    const notifLink = document.getElementById("nav-notifications")?.closest("li");
+    const subtitleEl = document.getElementById("sidebarRoleSubtitle");
+
+    const topbarChat = document.querySelector(".topbar-right button[title='Messages / Chat']");
+    const topbarNotif = document.querySelector(".topbar-right button[title='Notifications']");
+
+    const showItem = (el, visible) => {
+      if (el) el.style.display = visible ? "" : "none";
+    };
+
+    if (role === "STUDENT") {
+      showItem(trackLink, true);
+      showItem(cmpLink, true);
+      showItem(historyLink, true);
+      showItem(msgLink, true);
+      showItem(notifLink, true);
+      showItem(annLink, true);
+      showItem(sigLink, false);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "flex";
+      if (topbarChat) topbarChat.style.display = "";
+      if (topbarNotif) topbarNotif.style.display = "";
+      if (subtitleEl) subtitleEl.textContent = "Student Portal";
+    } else if (role === "STAFF") {
+      showItem(trackLink, false);
+      showItem(cmpLink, false);
+      showItem(historyLink, true);
+      showItem(msgLink, true);
+      showItem(notifLink, true);
+      showItem(annLink, true);
+      showItem(sigLink, false);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "none";
+      if (topbarChat) topbarChat.style.display = "";
+      if (topbarNotif) topbarNotif.style.display = "";
+      if (subtitleEl) subtitleEl.textContent = "Faculty & Staff Portal";
+    } else if (role === "ADVISOR" || role === "CLASS_ADVISOR") {
+      showItem(trackLink, false);
+      showItem(cmpLink, false);
+      showItem(historyLink, true);
+      showItem(msgLink, true);
+      showItem(notifLink, true);
+      showItem(annLink, true);
+      showItem(sigLink, true);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "none";
+      if (topbarChat) topbarChat.style.display = "";
+      if (topbarNotif) topbarNotif.style.display = "";
+      if (subtitleEl) subtitleEl.textContent = "Class Advisor Portal";
+    } else if (role === "HOD") {
+      showItem(trackLink, false);
+      showItem(cmpLink, false);
+      showItem(historyLink, true);
+      showItem(msgLink, true);
+      showItem(notifLink, true);
+      showItem(annLink, true);
+      showItem(sigLink, true);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "none";
+      if (topbarChat) topbarChat.style.display = "";
+      if (topbarNotif) topbarNotif.style.display = "";
+      if (subtitleEl) subtitleEl.textContent = "HOD Department Desk";
+    } else if (role === "PRINCIPAL") {
+      showItem(trackLink, false);
+      showItem(cmpLink, false);
+      showItem(historyLink, true);
+      showItem(msgLink, true);
+      showItem(notifLink, true);
+      showItem(annLink, true);
+      showItem(sigLink, true);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "none";
+      if (topbarChat) topbarChat.style.display = "";
+      if (topbarNotif) topbarNotif.style.display = "";
+      if (subtitleEl) subtitleEl.textContent = "Principal Governance";
+    } else if (role === "ADMIN") {
+      showItem(trackLink, false);
+      showItem(cmpLink, false);
+      showItem(historyLink, false);
+      showItem(msgLink, false);
+      showItem(notifLink, false);
+      showItem(annLink, false);
+      showItem(sigLink, false);
+      showItem(verifyLink, false);
+      if (asstBtn) asstBtn.style.display = "none";
+      if (topbarChat) topbarChat.style.display = "none";
+      if (topbarNotif) topbarNotif.style.display = "none";
+      if (subtitleEl) subtitleEl.textContent = "Administration";
+    }
+  }
+};
+
 const App = {
   currentTab: "dashboard",
   currentSelectedRole: null,
 
   init() {
     this.bindEvents();
+    SidebarManager.init();
     this.checkSession();
   },
 
@@ -1055,7 +1342,9 @@ const App = {
     document.getElementById("loginView").style.display = "none";
     document.getElementById("appView").style.display = "flex";
 
-    // Setup Topbar User Details
+    // Setup Collapsible Role-Aware Sidebar & Topbar User Details
+    SidebarManager.init();
+    SidebarManager.applyRoleNavigation(user);
     this.renderTopbarUser(user);
 
     // Setup Views by Role or URL Hash
@@ -1069,7 +1358,10 @@ const App = {
     if (window.RealtimeSync) RealtimeSync.start();
     if (window.ProfileManager && ProfileManager.fetchAuthoritativeProfile) {
       ProfileManager.fetchAuthoritativeProfile().then(fresh => {
-        if (fresh) this.renderTopbarUser(fresh);
+        if (fresh) {
+          this.renderTopbarUser(fresh);
+          SidebarManager.applyRoleNavigation(fresh);
+        }
       }).catch(() => {});
     }
   },
@@ -1087,77 +1379,33 @@ const App = {
     const chatView = document.getElementById("chatView");
     if (chatView) chatView.style.display = "none";
 
-    const sigLink = document.getElementById("sidebarSignatureLink");
-    const cmpLink = document.getElementById("sidebarComplaintsLink");
-    const trackLink = document.getElementById("sidebarTrackingLink");
-    const asstBtn = document.getElementById("assistantFloatingBtn");
-    const annLink = document.getElementById("sidebarAnnouncementsLink");
-
-    const historyLink = document.getElementById("nav-history")?.closest("li");
-    if (historyLink) historyLink.style.display = "";
-    const msgLink = document.getElementById("nav-messages")?.closest("li");
-    if (msgLink) msgLink.style.display = "";
-    const notifLink = document.getElementById("nav-notifications")?.closest("li");
-    if (notifLink) notifLink.style.display = "";
-    const topbarChat = document.querySelector(".topbar-right button[title='Messages / Chat']");
-    if (topbarChat) topbarChat.style.display = "";
-    const topbarNotif = document.querySelector(".topbar-right button[title='Notifications']");
-    if (topbarNotif) topbarNotif.style.display = "";
+    // Enforce strict role-specific sidebar options
+    SidebarManager.applyRoleNavigation(user);
 
     // Initialize Announcements Banner & Board
     if (window.AnnouncementApp) {
       AnnouncementApp.init(user);
     }
 
-    if (user.role === "STUDENT") {
+    const role = (user.role || "").toUpperCase();
+    if (role === "STUDENT") {
       document.getElementById("studentView").style.display = "block";
-      if (sigLink) sigLink.style.display = "none";
-      if (cmpLink) cmpLink.style.display = "flex";
-      if (trackLink) trackLink.style.display = "flex";
-      if (asstBtn) asstBtn.style.display = "flex";
-      if (annLink) annLink.style.display = "block";
       StudentPortal.init(user);
 
-    } else if (user.role === "ADVISOR") {
+    } else if (role === "ADVISOR" || role === "CLASS_ADVISOR" || role === "STAFF") {
       document.getElementById("advisorView").style.display = "block";
-      if (sigLink) sigLink.style.display = "flex";
-      if (cmpLink) cmpLink.style.display = "none";
-      if (trackLink) trackLink.style.display = "none";
-      if (asstBtn) asstBtn.style.display = "none";
-      if (annLink) annLink.style.display = "block";
       AdvisorPortal.init(user);
 
-    } else if (user.role === "HOD") {
+    } else if (role === "HOD") {
       document.getElementById("hodView").style.display = "block";
-      if (sigLink) sigLink.style.display = "flex";
-      if (cmpLink) cmpLink.style.display = "none";
-      if (trackLink) trackLink.style.display = "none";
-      if (asstBtn) asstBtn.style.display = "none";
-      if (annLink) annLink.style.display = "block";
       HodPortal.init(user);
 
-    } else if (user.role === "PRINCIPAL") {
+    } else if (role === "PRINCIPAL") {
       document.getElementById("principalView").style.display = "block";
-      if (sigLink) sigLink.style.display = "flex";
-      if (cmpLink) cmpLink.style.display = "none";
-      if (trackLink) trackLink.style.display = "none";
-      if (asstBtn) asstBtn.style.display = "none";
-      if (annLink) annLink.style.display = "block";
       PrincipalPortal.init(user);
 
-    } else if (user.role === "ADMIN") {
+    } else if (role === "ADMIN") {
       if (adminView) adminView.style.display = "block";
-      if (sigLink) sigLink.style.display = "none";
-      if (cmpLink) cmpLink.style.display = "none";
-      if (trackLink) trackLink.style.display = "none";
-      if (asstBtn) asstBtn.style.display = "none";
-      if (annLink) annLink.style.display = "none";
-
-      if (historyLink) historyLink.style.display = "none";
-      if (msgLink) msgLink.style.display = "none";
-      if (notifLink) notifLink.style.display = "none";
-      if (topbarChat) topbarChat.style.display = "none";
-      if (topbarNotif) topbarNotif.style.display = "none";
     }
   },
 
@@ -1173,6 +1421,15 @@ const App = {
     if (activeEl) activeEl.classList.add("active");
 
     const user = Auth.getUser();
+    SidebarManager.applyRoleNavigation(user);
+    if (SidebarManager.isMobile()) {
+      SidebarManager.close();
+    }
+
+    // Prevent non-student users from entering Student Tracking tab via hash manipulation
+    if (tabName === "track" && (!user || (user.role || "").toUpperCase() !== "STUDENT")) {
+      return this.switchTab("dashboard");
+    }
 
     // Toggle chat-active class on body to reposition assistant widget outside chat controls
     if (tabName === "messages") {
@@ -1688,8 +1945,8 @@ const App = {
 
     const advInfoEl = document.getElementById("detAdvisorInfo");
     if (advInfoEl) {
-      const advName = r.assignedReviewerName || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
-      advInfoEl.innerHTML = `<span class="badge-tag badge-secondary" style="font-weight:600;">👩‍🏫 ${this.escape(advName)}</span> <span style="font-size:11px; color:#64748b; margin-left:4px;">(Assigned Class Advisor, ${this.escape(r.section || 'CSE-A')})</span>`;
+      const advName = r.assignedReviewerName || ProfileManager.resolveClassAdvisorForSection(r.section, false);
+      advInfoEl.innerHTML = `<span class="badge-tag badge-secondary" style="font-weight:600;">👩‍🏫 ${this.escape(advName)}</span> <span style="font-size:11px; color:#64748b; margin-left:4px;">(Assigned Class Advisor${r.section ? ', ' + this.escape(r.section) : ''})</span>`;
     }
 
     const orgEl = document.getElementById("detOrganizer");
@@ -1916,7 +2173,7 @@ const App = {
         // Not the assigned advisor (could be student, another section's advisor, or other staff)
         let note = "⏳ Request is awaiting Class Advisor review & endorsement.";
         if (user && user.role === "ADVISOR") {
-          const advName = r.assignedReviewerName || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
+          const advName = r.assignedReviewerName || ProfileManager.resolveClassAdvisorForSection(r.section, false);
           note = `🔒 <strong>Section Isolation Audit:</strong> This request belongs to Section <strong>${this.escape(r.section || 'CSE')}</strong> (Assigned Advisor: <strong>${this.escape(advName)}</strong>). You are viewing this record in read-only audit mode.`;
         }
         if (actionPanelEl) {
@@ -2712,7 +2969,7 @@ const App = {
     };
 
     const advSection = r.section || 'CSE-A';
-    const advDefault = advSection === 'CSE-B' ? 'Dr. Divyabharathi' : (advSection === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi');
+    const advDefault = ProfileManager.resolveClassAdvisorForSection(r.section, false);
 
     let html = renderCard(
       `Class Advisor (${advSection})`,

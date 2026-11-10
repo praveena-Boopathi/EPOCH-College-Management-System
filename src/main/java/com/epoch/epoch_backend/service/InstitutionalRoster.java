@@ -204,6 +204,7 @@ public class InstitutionalRoster {
         p.setAcademicYear(UserService.CURRENT_ACADEMIC_YEAR);
         p.setYear("IV Year");
         p.setStudentType("Day Scholar");
+        p.setAdvisor(UserService.resolveClassAdvisorForSection(section));
         p.setBio("Authorized student record enrolled in " + UserService.CURRENT_ACADEMIC_YEAR + " at Gnanamani College of Technology.");
         ROSTER_BY_ID.put(regNo.trim(), p);
         ROSTER_BY_SECTION.computeIfAbsent(section.toUpperCase(), k -> new ArrayList<>()).add(p);

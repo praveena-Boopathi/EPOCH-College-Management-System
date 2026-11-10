@@ -249,7 +249,7 @@ const HodPortal = {
       const adv = r.advisorDecision || {};
       let advDecisionHtml = '';
       if (adv.status === "APPROVED" || r.advisorApproved || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || approvedReq) {
-        const advName = adv.by || adv.approver || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
+        const advName = adv.by || adv.approver || (window.ProfileManager && ProfileManager.resolveClassAdvisorForSection ? ProfileManager.resolveClassAdvisorForSection(r.section, false) : 'Advisor assignment unavailable');
         const advTime = adv.timestamp || (r.advisorApprovalDate ? new Date(r.advisorApprovalDate).toLocaleString() : 'Verified');
         advDecisionHtml = `
           <div style="display:flex; flex-direction:column; gap:2px;">
@@ -587,7 +587,7 @@ const HodPortal = {
         const adv = r.advisorDecision || {};
         let advEndorsementHtml = '';
         if (adv.status === "APPROVED" || r.advisorApproved || r.status === "PENDING_HOD" || r.status === "PENDING_PRINCIPAL" || r.status === "APPROVED") {
-          const advName = adv.by || adv.approver || (r.section === 'CSE-B' ? 'Dr. Divyabharathi' : (r.section === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi'));
+          const advName = adv.by || adv.approver || (window.ProfileManager && ProfileManager.resolveClassAdvisorForSection ? ProfileManager.resolveClassAdvisorForSection(r.section, false) : 'Advisor assignment unavailable');
           advEndorsementHtml = `
             <div>
               <span class="badge-tag badge-approved" style="font-size:10px; width:fit-content;">✓ Endorsed</span>

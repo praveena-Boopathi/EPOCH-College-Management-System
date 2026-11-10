@@ -162,6 +162,9 @@ const Auth = {
       email: data.email,
       department: data.department,
       academicYear: data.role === "STUDENT" ? (data.academicYear || "IV Year B.E.") : "",
+      advisor: data.role === "STUDENT"
+        ? (data.advisor || (window.ProfileManager && ProfileManager.resolveClassAdvisorForSection ? ProfileManager.resolveClassAdvisorForSection(data.section, true) : ""))
+        : "",
       title: data.title || "",
       contact: data.contact || "",
       bio: data.bio || "",

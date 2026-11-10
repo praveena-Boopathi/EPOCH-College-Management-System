@@ -46,6 +46,26 @@ public class UserService {
         return false;
     }
 
+    public static String resolveClassAdvisorForSection(String section) {
+        if (section == null || section.trim().isEmpty()) {
+            return "Advisor assignment unavailable";
+        }
+        String norm = section.trim().toUpperCase()
+                .replaceAll("^SECTION\\s*", "")
+                .replaceAll("[\\s_]+", "-")
+                .replaceAll("CSE([ABC])$", "CSE-$1");
+        if ("CSE-A".equals(norm)) {
+            return "Mrs. P. Arularasi (CSE-A)";
+        }
+        if ("CSE-B".equals(norm)) {
+            return "Mrs. Dhivya Bharathi (CSE-B)";
+        }
+        if ("CSE-C".equals(norm)) {
+            return "Mrs. Rajavathi Jayapriya (CSE-C)";
+        }
+        return "Advisor assignment unavailable";
+    }
+
     public static UserProfile cloneProfile(UserProfile source) {
         if (source == null) return null;
         UserProfile p = new UserProfile();
@@ -65,6 +85,9 @@ public class UserService {
         p.setAddress(source.getAddress());
         p.setEmergencyContact(source.getEmergencyContact());
         p.setTitle(source.getTitle());
+        p.setAdvisor(source.getRole() == UserRole.STUDENT
+                ? resolveClassAdvisorForSection(source.getSection())
+                : source.getAdvisor());
         return p;
     }
 
@@ -121,6 +144,7 @@ public class UserService {
                 if (doc.getString("address") != null && !doc.getString("address").isEmpty()) p.setAddress(doc.getString("address"));
                 if (doc.getString("emergencyContact") != null && !doc.getString("emergencyContact").isEmpty()) p.setEmergencyContact(doc.getString("emergencyContact"));
                 if (doc.getString("title") != null && !doc.getString("title").isEmpty()) p.setTitle(doc.getString("title"));
+                p.setAdvisor(resolveClassAdvisorForSection(p.getSection()));
 
                 String photo = doc.getString("profilePhoto");
                 if (photo == null || photo.isEmpty()) photo = doc.getString("photoUrl");
@@ -383,6 +407,7 @@ public class UserService {
             if (!cleanEmail.isEmpty()) currentUser.setEmail(cleanEmail);
             if (!cleanAddress.isEmpty()) currentUser.setAddress(cleanAddress);
             if (!cleanEmergency.isEmpty()) currentUser.setEmergencyContact(cleanEmergency);
+            currentUser.setAdvisor(resolveClassAdvisorForSection(currentUser.getSection()));
             setCachedProfile(currentUser.getIdentifier(), currentUser);
             setCachedProfile(id, currentUser);
             syncFirebaseAuth(currentUser.getIdentifier(), currentUser.getEmail(), cleanName, currentUser.getProfilePhoto());

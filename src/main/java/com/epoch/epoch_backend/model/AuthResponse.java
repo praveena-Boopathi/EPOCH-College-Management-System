@@ -12,6 +12,7 @@ public class AuthResponse {
     private String title;
     private String bio;
     private String contact;
+    private String advisor;
     private String redirectUrl;
     private String profilePhoto;
 
@@ -61,6 +62,9 @@ public class AuthResponse {
 
     public String getContact() { return contact; }
     public void setContact(String contact) { this.contact = contact; }
+
+    public String getAdvisor() { return advisor; }
+    public void setAdvisor(String advisor) { this.advisor = advisor; }
 
     public String getRedirectUrl() { return redirectUrl; }
     public void setRedirectUrl(String redirectUrl) { this.redirectUrl = redirectUrl; }

@@ -154,76 +154,80 @@
   <!-- ==================== 2. MAIN APPLICATION PORTAL ==================== -->
   <div id="appView" class="app-container" style="display:none;">
     
+    <!-- Mobile Drawer Backdrop -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="SidebarManager.close()" aria-hidden="true"></div>
+
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside id="appSidebar" class="sidebar" role="navigation" aria-label="Primary Role Navigation">
       <div class="sidebar-header">
         <div class="sidebar-brand-wrapper">
           <div class="sidebar-logo-icon">🎓</div>
           <div>
             <div class="sidebar-brand">EPOCH</div>
-            <div class="sidebar-subbrand">Academic Operations</div>
+            <div id="sidebarRoleSubtitle" class="sidebar-subbrand">Academic Operations</div>
           </div>
         </div>
+        <button type="button" id="sidebarMobileCloseBtn" class="sidebar-mobile-close" onclick="SidebarManager.close()" aria-label="Close navigation menu" title="Close menu">&times;</button>
       </div>
 
       <ul class="sidebar-menu">
         <li class="sidebar-item">
-          <a id="nav-dashboard" class="sidebar-link active" onclick="App.switchTab('dashboard')">
+          <a href="javascript:void(0)" id="nav-dashboard" class="sidebar-link active" onclick="App.switchTab('dashboard')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
             📊 Dashboard
           </a>
         </li>
         <li class="sidebar-item">
-          <a id="nav-profile" class="sidebar-link" onclick="App.switchTab('profile')">
+          <a href="javascript:void(0)" id="nav-profile" class="sidebar-link" onclick="App.switchTab('profile')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             👤 My Profile
           </a>
         </li>
         <li id="sidebarTrackingLink" class="sidebar-item" style="display:none;">
-          <a id="nav-track" class="sidebar-link" onclick="App.switchTab('track')">
+          <a href="javascript:void(0)" id="nav-track" class="sidebar-link" onclick="App.switchTab('track')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
             📋 Track My Requests
           </a>
         </li>
         <li id="sidebarComplaintsLink" class="sidebar-item">
-          <a id="nav-complaints" class="sidebar-link" onclick="StudentPortal.openComplaintModal()">
+          <a href="javascript:void(0)" id="nav-complaints" class="sidebar-link" onclick="StudentPortal.openComplaintModal()" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             🚨 Direct Grievances
           </a>
         </li>
         <li class="sidebar-item">
-          <a id="nav-history" class="sidebar-link" onclick="App.switchTab('history')">
+          <a href="javascript:void(0)" id="nav-history" class="sidebar-link" onclick="App.switchTab('history')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             📜 Decision History
           </a>
         </li>
         <li class="sidebar-item">
-          <a id="nav-messages" class="sidebar-link" onclick="App.switchTab('messages')">
+          <a href="javascript:void(0)" id="nav-messages" class="sidebar-link" onclick="App.switchTab('messages')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
             💬 Messages
             <span id="sidebarChatBadge" class="chat-unread-badge" style="display:none; margin-left:auto;">0</span>
           </a>
         </li>
         <li class="sidebar-item">
-          <a id="nav-notifications" class="sidebar-link" onclick="App.switchTab('notifications')">
+          <a href="javascript:void(0)" id="nav-notifications" class="sidebar-link" onclick="App.switchTab('notifications')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
             🔔 Notifications
           </a>
         </li>
         <li id="sidebarAnnouncementsLink" class="sidebar-item">
-          <a id="nav-announcements" class="sidebar-link" onclick="App.switchTab('announcements')">
+          <a href="javascript:void(0)" id="nav-announcements" class="sidebar-link" onclick="App.switchTab('announcements')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
             📢 Announcements
           </a>
         </li>
         <li id="sidebarVerifyLink" class="sidebar-item" style="display:none;">
-          <a id="nav-verify" class="sidebar-link" onclick="App.switchTab('verify')">
+          <a href="javascript:void(0)" id="nav-verify" class="sidebar-link" onclick="App.switchTab('verify')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
             🛡️ Verify Payments
           </a>
         </li>
         <li id="sidebarSignatureLink" class="sidebar-item">
-          <a id="nav-signature" class="sidebar-link" onclick="App.switchTab('dashboard')">
+          <a href="javascript:void(0)" id="nav-signature" class="sidebar-link" onclick="App.switchTab('dashboard')" role="button" tabindex="0">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
             ✍️ Authorized Signature
           </a>
@@ -244,9 +248,21 @@
       
       <!-- Topbar Header -->
       <header class="topbar">
-        <div class="topbar-title">
-          <span>🏛️</span>
-          <span>Gnanamani College of Technology • Academic Operations</span>
+        <div class="topbar-left">
+          <button type="button"
+                  id="sidebarToggleBtn"
+                  class="sidebar-toggle-btn"
+                  onclick="SidebarManager.toggle()"
+                  aria-label="Toggle navigation menu"
+                  aria-controls="appSidebar"
+                  aria-expanded="true"
+                  title="Toggle Navigation Sidebar (Alt+M)">
+            <span class="hamburger-icon" aria-hidden="true">☰</span>
+          </button>
+          <div class="topbar-title">
+            <span>🏛️</span>
+            <span class="topbar-title-text">Gnanamani College of Technology • Academic Operations</span>
+          </div>
         </div>
 
         <!-- Fast User Search Shortcut -->
@@ -726,15 +742,33 @@
                 <button type="button" class="btn btn-secondary btn-sm" onclick="App.switchTab('profile')" style="display:inline-flex; align-items:center; gap:5px; font-weight:600;">
                   <span>👤 My Profile</span>
                 </button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="AdvisorPortal.openClassAnnouncementModal()" style="display:inline-flex; align-items:center; gap:5px; font-weight:700;">
+                <button type="button" id="advisorAnnounceHeaderBtn" class="btn btn-primary btn-sm" onclick="AdvisorPortal.openClassAnnouncementModal()" style="display:inline-flex; align-items:center; gap:5px; font-weight:700;">
                   <span>📢 Send Class Announcement</span>
                 </button>
               </div>
             </div>
           </div>
 
+          <!-- Staff Quick Faculty Workspace (Shown strictly for STAFF accounts) -->
+          <div id="staffFacultyQuickPanel" class="card" style="display:none; margin-bottom:20px; border-left:4px solid var(--accent-teal);">
+            <div class="card-header">
+              <div class="card-title">👨‍🏫 Faculty & Staff Quick Access</div>
+            </div>
+            <div class="card-body">
+              <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
+                Manage your faculty profile, inspect department announcements, review official communications, and track notifications.
+              </p>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary" onclick="App.switchTab('profile')">👤 View & Edit My Profile</button>
+                <button type="button" class="btn btn-secondary" onclick="App.switchTab('announcements')">📢 Institutional Announcements</button>
+                <button type="button" class="btn btn-secondary" onclick="App.switchTab('messages')">💬 Messages & Queries</button>
+                <button type="button" class="btn btn-secondary" onclick="App.switchTab('notifications')">🔔 Notifications</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Advisor Metrics -->
-          <div class="metrics-grid">
+          <div id="advisorMetricsGrid" class="metrics-grid">
             <div id="advCardPending" class="metric-card clickable-card" onclick="AdvisorPortal.showCategoryDetails('PENDING')" role="button" tabindex="0" title="Click to view all requests currently awaiting your advisor action">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div class="metric-label">⏳ Pending My Review</div>
@@ -836,7 +870,7 @@
           </div>
 
           <!-- Class Announcements & Broadcast History Card -->
-          <div class="card" style="margin-bottom:20px; border-left:4px solid #0d9488;">
+          <div id="advisorBroadcastCard" class="card" style="margin-bottom:20px; border-left:4px solid #0d9488;">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
               <div>
                 <div class="card-title" style="display:flex; align-items:center; gap:8px;">
@@ -858,7 +892,7 @@
           </div>
 
           <!-- Review Queue -->
-          <div class="card">
+          <div id="advisorReviewQueueCard" class="card">
             <div class="card-header">
               <div class="card-title">📥 Section OD Review Queue</div>
             </div>
@@ -881,7 +915,7 @@
           </div>
 
           <!-- Advisor Signature & Attendance Monitoring -->
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+          <div id="advisorSignAndAttendanceGrid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
             <div class="card">
               <div class="card-header"><div class="card-title">✍️ My Authorized Signature</div></div>
               <div class="card-body">

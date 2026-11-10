@@ -17,6 +17,7 @@ public class UserProfile {
     private String address;
     private String emergencyContact;
     private String title;
+    private String advisor;
 
     public UserProfile() {}
 
@@ -98,4 +99,7 @@ public class UserProfile {
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
+
+    public String getAdvisor() { return advisor; }
+    public void setAdvisor(String advisor) { this.advisor = advisor; }
 }

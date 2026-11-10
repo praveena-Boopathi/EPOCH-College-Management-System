@@ -1129,8 +1129,10 @@ const StudentPortal = {
     const end = document.getElementById("odEndDateInput").value;
     const days = parseInt(document.getElementById("odDaysInput").value) || 1;
     const reason = document.getElementById("odReasonInput").value.trim();
-    const sec = u.section || "CSE-A";
-    const advName = sec === "CSE-B" ? "Dr. Divyabharathi" : (sec === "CSE-C" ? "Mrs. Rajavathi Jayapriya" : "Mrs. P. Arularasi");
+    const sec = u.section || "";
+    const advName = (window.ProfileManager && ProfileManager.resolveClassAdvisorForSection)
+      ? ProfileManager.resolveClassAdvisorForSection(sec, false)
+      : "Advisor assignment unavailable";
 
     const isBonafide = cat.toLowerCase().includes("bonafide") || title.toLowerCase().includes("bonafide");
     const isLeave = cat.toLowerCase().includes("leave") || title.toLowerCase().includes("leave");
@@ -1776,7 +1778,9 @@ const StudentPortal = {
       };
 
       const advSec = req.section || 'CSE-A';
-      const advDef = advSec === 'CSE-B' ? 'Dr. Divyabharathi' : (advSec === 'CSE-C' ? 'Mrs. Rajavathi Jayapriya' : 'Mrs. P. Arularasi');
+      const advDef = (window.ProfileManager && ProfileManager.resolveClassAdvisorForSection)
+        ? ProfileManager.resolveClassAdvisorForSection(req.section, false)
+        : 'Advisor assignment unavailable';
 
       let html = `<div style="display:flex; gap:10px; width:100%; margin-top:10px;">`;
       html += renderSigBlock(`Class Advisor (${advSec})`, adv, advDef);

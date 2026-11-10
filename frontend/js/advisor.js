@@ -48,10 +48,41 @@ const AdvisorPortal = {
 
   async init(user) {
     this.currentUser = user;
+    const isStaffOnly = (user.role || "").toUpperCase() === "STAFF";
     const nameEl = document.getElementById("advisorNameBanner");
     const secEl = document.getElementById("advisorSectionBanner");
     const badgeEl = document.getElementById("advisorBadgeTag");
+
+    const advMetricsGrid = document.getElementById("advisorMetricsGrid");
+    const advMetricDetails = document.getElementById("advisorMetricDetailsSection");
+    const advBroadcastCard = document.getElementById("advisorBroadcastCard");
+    const advQueueCard = document.getElementById("advisorReviewQueueCard");
+    const advSignGrid = document.getElementById("advisorSignAndAttendanceGrid");
+    const advAnnBtn = document.getElementById("advisorAnnounceHeaderBtn");
+    const staffQuickPanel = document.getElementById("staffFacultyQuickPanel");
+
     if (nameEl) nameEl.textContent = user.name;
+
+    if (isStaffOnly) {
+      if (secEl) secEl.textContent = `Faculty & Staff Workspace | Department of ${user.department || "Computer Science & Engineering"}`;
+      if (badgeEl) badgeEl.textContent = "Faculty / Staff";
+      if (advMetricsGrid) advMetricsGrid.style.display = "none";
+      if (advMetricDetails) advMetricDetails.style.display = "none";
+      if (advBroadcastCard) advBroadcastCard.style.display = "none";
+      if (advQueueCard) advQueueCard.style.display = "none";
+      if (advSignGrid) advSignGrid.style.display = "none";
+      if (advAnnBtn) advAnnBtn.style.display = "none";
+      if (staffQuickPanel) staffQuickPanel.style.display = "block";
+      return;
+    }
+
+    if (staffQuickPanel) staffQuickPanel.style.display = "none";
+    if (advMetricsGrid) advMetricsGrid.style.display = "";
+    if (advBroadcastCard) advBroadcastCard.style.display = "";
+    if (advQueueCard) advQueueCard.style.display = "";
+    if (advSignGrid) advSignGrid.style.display = "grid";
+    if (advAnnBtn) advAnnBtn.style.display = "inline-flex";
+
     if (secEl) secEl.textContent = `Assigned Section: ${user.section || "CSE-A"} | Department of Computer Science & Engineering`;
     if (badgeEl) badgeEl.textContent = `Section ${user.section || "CSE-A"} Advisor`;
 

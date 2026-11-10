@@ -209,6 +209,38 @@ public class EpochWorkflowAuditTest {
         }
 
         @Test
+        @DisplayName("4d. Section-Based Class Advisor Mapping for CSE-A, CSE-B, CSE-C, and Missing/Invalid Sections")
+        void testSectionBasedClassAdvisorMapping() throws Exception {
+            UserProfile studentA = userService.findStudent("620823104002");
+            assertEquals("CSE-A", studentA.getSection());
+            assertEquals("Mrs. P. Arularasi (CSE-A)", studentA.getAdvisor());
+
+            UserProfile studentB = userService.findStudent("620823104066");
+            assertEquals("CSE-B", studentB.getSection());
+            assertEquals("Mrs. Dhivya Bharathi (CSE-B)", studentB.getAdvisor());
+
+            UserProfile studentC = userService.findStudent("620823104177");
+            assertEquals("CSE-C", studentC.getSection());
+            assertEquals("Mrs. Rajavathi Jayapriya (CSE-C)", studentC.getAdvisor());
+
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection(null));
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection(""));
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection("   "));
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection("CSE-D"));
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection("ECE-A"));
+            assertEquals("Advisor assignment unavailable", UserService.resolveClassAdvisorForSection("UNKNOWN"));
+
+            // Ensure profile update preserves read-only section advisor
+            UserProfile updatedB = userService.updateProfile(studentB, studentB.getName(), "+91 7539901345", "Updated bio", studentB.getEmail(), null, null);
+            assertEquals("Mrs. Dhivya Bharathi (CSE-B)", updatedB.getAdvisor());
+
+            // Verify existing approval routing IDs remain unchanged
+            assertEquals("arularasi", OdService.getAdvisorForSection("CSE-A"));
+            assertEquals("divyabharathi", OdService.getAdvisorForSection("CSE-B"));
+            assertEquals("rajavathijayapriya", OdService.getAdvisorForSection("CSE-C"));
+        }
+
+        @Test
         @DisplayName("5. Profile Photo Upload and Removal for all roles")
         void testProfilePhotoUploadAndRemoval() throws Exception {
             UserProfile student = userService.findStudent("620823104002");
